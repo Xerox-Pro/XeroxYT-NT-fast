@@ -132,7 +132,7 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
     return { videos: [], nextPageToken: undefined };
   }
 
-  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=200`;
+  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=50`;
 
   try {
     const response = await fetch(searchUrl);
