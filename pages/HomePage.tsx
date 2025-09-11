@@ -4,6 +4,7 @@ import VideoGrid from '../components/VideoGrid';
 import { getRecommendedVideos } from '../utils/api';
 import type { Video } from '../types';
 import VideoCardSkeleton from '../components/skeletons/VideoCardSkeleton';
+import { useApiKey } from '../contexts/ApiKeyContext';
 
 const useInfiniteScroll = (callback: () => void) => {
     const observer = useRef<IntersectionObserver | null>(null);
@@ -21,6 +22,7 @@ const useInfiniteScroll = (callback: () => void) => {
 };
 
 const HomePage: React.FC = () => {
+    const { apiKey } = useApiKey();
     const [videos, setVideos] = useState<Video[]>([]);
     const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
     const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -28,13 +30,13 @@ const HomePage: React.FC = () => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const loadVideos = useCallback(async (token?: string) => {
-        if (token === undefined && videos.length > 0) return; // Already loaded all pages
+        if (!apiKey || (token === undefined && videos.length > 0)) return;
         
         setError(null);
         token ? setIsLoadingMore(true) : setIsLoading(true);
         
         try {
-            const { videos: newVideos, nextPageToken: nextToken } = await getRecommendedVideos(token);
+            const { videos: newVideos, nextPageToken: nextToken } = await getRecommendedVideos(apiKey, token);
             setVideos(prev => token ? [...prev, ...newVideos] : newVideos);
             setNextPageToken(nextToken);
         } catch (err: any) {
@@ -43,11 +45,15 @@ const HomePage: React.FC = () => {
         } finally {
             token ? setIsLoadingMore(false) : setIsLoading(false);
         }
-    }, [videos.length]);
+    }, [apiKey, videos.length]);
     
     useEffect(() => {
-        loadVideos();
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+        if (apiKey) {
+            loadVideos();
+        } else {
+            setIsLoading(false);
+        }
+    }, [apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleLoadMore = useCallback(() => {
         if (!isLoadingMore && nextPageToken) {

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { getVideoDetails } from '../utils/api';
@@ -8,6 +9,7 @@ import Comment from '../components/Comment';
 import PlaylistModal from '../components/PlaylistModal';
 import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useApiKey } from '../contexts/ApiKeyContext';
 
 const parseDescription = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -25,6 +27,7 @@ const parseDescription = (text: string) => {
 const VideoPlayerPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const videoId = searchParams.get('v');
+  const { apiKey } = useApiKey();
   
   const [videoDetails, setVideoDetails] = useState<VideoDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,11 +45,16 @@ const VideoPlayerPage: React.FC = () => {
         setIsLoading(false);
         return;
       }
+       if (!apiKey) {
+        setError("APIキーが設定されていません。");
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setError(null);
       setVideoDetails(null);
       try {
-        const details = await getVideoDetails(videoId);
+        const details = await getVideoDetails(apiKey, videoId);
         setVideoDetails(details);
       } catch (err: any) {
         setError(err.message || '動画の読み込みに失敗しました。後でもう一度お試しください。');
@@ -56,7 +64,7 @@ const VideoPlayerPage: React.FC = () => {
       }
     };
     fetchDetails();
-  }, [videoId]);
+  }, [videoId, apiKey]);
 
   const descriptionParts = useMemo(() => {
     if (videoDetails?.description) {

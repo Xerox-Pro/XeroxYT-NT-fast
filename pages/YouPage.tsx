@@ -1,22 +1,27 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlaylist } from '../contexts/PlaylistContext';
 import { getVideosByIds } from '../utils/api';
 import type { Playlist, Video } from '../types';
 import { PlaylistIcon } from '../components/icons/Icons';
+import { useApiKey } from '../contexts/ApiKeyContext';
 
 const YouPage: React.FC = () => {
     const { playlists } = usePlaylist();
+    const { apiKey } = useApiKey();
     const [playlistThumbnails, setPlaylistThumbnails] = useState<Record<string, string>>({});
 
     useEffect(() => {
         const fetchThumbnails = async () => {
+            if (!apiKey) return;
+            
             const videoIdsToFetch = playlists
                 .map(p => p.videoIds[0])
                 .filter((id): id is string => !!id);
             
             if (videoIdsToFetch.length > 0) {
-                const videos = await getVideosByIds(videoIdsToFetch);
+                const videos = await getVideosByIds(apiKey, videoIdsToFetch);
                 const thumbnails: Record<string, string> = {};
                 const videoMap = new Map(videos.map(v => [v.id, v.thumbnailUrl]));
 
@@ -33,7 +38,7 @@ const YouPage: React.FC = () => {
         };
 
         fetchThumbnails();
-    }, [playlists]);
+    }, [playlists, apiKey]);
 
     return (
         <div className="container mx-auto">

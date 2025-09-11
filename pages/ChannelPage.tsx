@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { getChannelDetails, getChannelVideos } from '../utils/api';
@@ -5,6 +6,7 @@ import type { ChannelDetails, Video } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/skeletons/VideoCardSkeleton';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useApiKey } from '../contexts/ApiKeyContext';
 
 const useInfiniteScroll = (callback: () => void) => {
     const observer = useRef<IntersectionObserver | null>(null);
@@ -23,6 +25,7 @@ const useInfiniteScroll = (callback: () => void) => {
 
 const ChannelPage: React.FC = () => {
     const { channelId } = useParams<{ channelId: string }>();
+    const { apiKey } = useApiKey();
     const [channelDetails, setChannelDetails] = useState<ChannelDetails | null>(null);
     const [videos, setVideos] = useState<Video[]>([]);
     const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
@@ -33,7 +36,7 @@ const ChannelPage: React.FC = () => {
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
 
     const loadData = useCallback(async (token?: string) => {
-        if (!channelId || (token === undefined && videos.length > 0)) return;
+        if (!channelId || !apiKey || (token === undefined && videos.length > 0)) return;
 
         setError(null);
         if (token) {
@@ -46,10 +49,10 @@ const ChannelPage: React.FC = () => {
 
         try {
             if (!token) {
-                const details = await getChannelDetails(channelId);
+                const details = await getChannelDetails(apiKey, channelId);
                 setChannelDetails(details);
             }
-            const { videos: newVideos, nextPageToken: nextToken } = await getChannelVideos(channelId, token);
+            const { videos: newVideos, nextPageToken: nextToken } = await getChannelVideos(apiKey, channelId, token);
             setVideos(prev => token ? [...prev, ...newVideos] : newVideos);
             setNextPageToken(nextToken);
         } catch (err: any) {
@@ -59,11 +62,13 @@ const ChannelPage: React.FC = () => {
             setIsLoading(false);
             setIsLoadingMore(false);
         }
-    }, [channelId, videos.length]);
+    }, [channelId, apiKey, videos.length]);
 
     useEffect(() => {
-        loadData();
-    }, [channelId]); // eslint-disable-line react-hooks/exhaustive-deps
+        if (apiKey) {
+            loadData();
+        }
+    }, [channelId, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const handleLoadMore = useCallback(() => {
         if (!isLoadingMore && nextPageToken) {

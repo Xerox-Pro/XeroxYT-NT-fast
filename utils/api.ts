@@ -1,7 +1,6 @@
 
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails } from '../types';
 
-const API_KEY = process.env.API_KEY;
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
 // --- HELPER FUNCTIONS ---
@@ -48,12 +47,12 @@ export const formatTimeAgo = (dateStr: string): string => {
 
 // --- CENTRALIZED API FETCHER ---
 
-const youtubeApiFetch = async (url: string) => {
-  if (!API_KEY) {
-    throw new Error("YouTube APIキーがありません。API_KEY環境変数を設定してください。");
+const youtubeApiFetch = async (url: string, apiKey: string) => {
+  if (!apiKey) {
+    throw new Error("YouTube APIキーがありません。設定からAPIキーを設定してください。");
   }
 
-  const response = await fetch(url);
+  const response = await fetch(`${url}&key=${apiKey}`);
 
   if (!response.ok) {
     let errorJson;
@@ -64,7 +63,7 @@ const youtubeApiFetch = async (url: string) => {
     }
     
     console.error('YouTube API Error:', JSON.stringify(errorJson, null, 2));
-    const errorMessage = errorJson?.error?.message || '不明なAPIエラーが発生しました。';
+    const errorMessage = errorJson?.error?.message || '不明なAPIエラーが発生しました。APIキーが正しいか確認してください。';
     throw new Error(errorMessage);
   }
   
@@ -74,11 +73,11 @@ const youtubeApiFetch = async (url: string) => {
 
 // --- DATA FETCHING AND MAPPING ---
 
-async function getChannelAvatars(channelIds: string[]): Promise<Record<string, string>> {
+async function getChannelAvatars(apiKey: string, channelIds: string[]): Promise<Record<string, string>> {
   if (channelIds.length === 0) return {};
-  const url = `${YOUTUBE_API_BASE_URL}/channels?part=snippet&id=${channelIds.join(',')}&key=${API_KEY}`;
+  const url = `${YOUTUBE_API_BASE_URL}/channels?part=snippet&id=${channelIds.join(',')}`;
   try {
-    const data = await youtubeApiFetch(url);
+    const data = await youtubeApiFetch(url, apiKey);
     const avatars: Record<string, string> = {};
     (data.items || []).forEach((item: any) => {
       avatars[item.id] = item.snippet.thumbnails.default.url;
@@ -110,49 +109,49 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
 
 // --- EXPORTED API FUNCTIONS ---
 
-export async function getRecommendedVideos(pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  let url = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=JP&maxResults=20&key=${API_KEY}`;
+export async function getRecommendedVideos(apiKey: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+  let url = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=JP&maxResults=20`;
   if(pageToken) url += `&pageToken=${pageToken}`;
   
-  const data = await youtubeApiFetch(url);
+  const data = await youtubeApiFetch(url, apiKey);
   if (!data.items) return { videos: [] };
 
   const channelIds = [...new Set(data.items.map((item: any) => item.snippet.channelId))];
-  const channelAvatars = await getChannelAvatars(channelIds as string[]);
+  const channelAvatars = await getChannelAvatars(apiKey, channelIds as string[]);
 
   const videos = data.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
   return { videos, nextPageToken: data.nextPageToken };
 }
 
 
-export async function searchVideos(query: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=20&type=video&regionCode=JP&key=${API_KEY}`;
+export async function searchVideos(apiKey: string, query: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+  let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=20&type=video&regionCode=JP`;
   if(pageToken) searchUrl += `&pageToken=${pageToken}`;
 
-  const searchData = await youtubeApiFetch(searchUrl);
+  const searchData = await youtubeApiFetch(searchUrl, apiKey);
   if (!searchData.items || searchData.items.length === 0) return { videos: [] };
   
   const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
-  const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`;
-  const detailsData = await youtubeApiFetch(detailsUrl);
+  const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds}`;
+  const detailsData = await youtubeApiFetch(detailsUrl, apiKey);
   if (!detailsData.items) return { videos: [] };
 
   const channelIds = [...new Set(detailsData.items.map((item: any) => item.snippet.channelId))];
-  const channelAvatars = await getChannelAvatars(channelIds as string[]);
+  const channelAvatars = await getChannelAvatars(apiKey, channelIds as string[]);
 
   const videos = detailsData.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
   return { videos, nextPageToken: searchData.nextPageToken };
 }
 
 
-export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-  const videoDetailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${API_KEY}`;
-  const relatedVideosUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&relatedToVideoId=${videoId}&type=video&maxResults=15&key=${API_KEY}`;
-  const commentsUrl = `${YOUTUBE_API_BASE_URL}/commentThreads?part=snippet&videoId=${videoId}&maxResults=20&order=relevance&key=${API_KEY}`;
+export async function getVideoDetails(apiKey: string, videoId: string): Promise<VideoDetails> {
+  const videoDetailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoId}`;
+  const relatedVideosUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&relatedToVideoId=${videoId}&type=video&maxResults=15`;
+  const commentsUrl = `${YOUTUBE_API_BASE_URL}/commentThreads?part=snippet&videoId=${videoId}&maxResults=20&order=relevance`;
   
   const optionalFetch = async (url: string, fetchName: string) => {
     try {
-      return await youtubeApiFetch(url);
+      return await youtubeApiFetch(url, apiKey);
     } catch (e) {
       console.error(`${fetchName} のAPI呼び出し失敗:`, e);
       return null;
@@ -160,17 +159,17 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
   };
 
   const [videoData, relatedData, commentsData, channelData] = await (async () => {
-    const mainVideoData = await youtubeApiFetch(videoDetailsUrl);
+    const mainVideoData = await youtubeApiFetch(videoDetailsUrl, apiKey);
     const videoItem = mainVideoData.items?.[0];
     if (!videoItem) throw new Error(`ID ${videoId} の動画が見つかりません。`);
     
     const channelId = videoItem.snippet.channelId;
-    const channelUrl = `${YOUTUBE_API_BASE_URL}/channels?part=snippet,statistics&id=${channelId}&key=${API_KEY}`;
+    const channelUrl = `${YOUTUBE_API_BASE_URL}/channels?part=snippet,statistics&id=${channelId}`;
 
     const [related, comments, channel] = await Promise.all([
       optionalFetch(relatedVideosUrl, '関連動画'),
       optionalFetch(commentsUrl, 'コメント'),
-      youtubeApiFetch(channelUrl)
+      youtubeApiFetch(channelUrl, apiKey)
     ]);
     
     return [videoItem, related, comments, channel.items?.[0]];
@@ -187,7 +186,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
   
   let relatedVideos: Video[] = [];
   if (relatedData?.items?.length > 0) {
-    const videos = await getVideosByIds(relatedData.items.map((item: any) => item.id.videoId));
+    const videos = await getVideosByIds(apiKey, relatedData.items.map((item: any) => item.id.videoId));
     relatedVideos = videos;
   }
 
@@ -225,22 +224,22 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
   };
 }
 
-export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
+export async function getVideosByIds(apiKey: string, videoIds: string[]): Promise<Video[]> {
     if (videoIds.length === 0) return [];
-    const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds.join(',')}&key=${API_KEY}`;
-    const detailsData = await youtubeApiFetch(detailsUrl);
+    const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds.join(',')}`;
+    const detailsData = await youtubeApiFetch(detailsUrl, apiKey);
     if (!detailsData.items) return [];
 
     const channelIds = [...new Set(detailsData.items.map((item: any) => item.snippet.channelId))];
-    const channelAvatars = await getChannelAvatars(channelIds as string[]);
+    const channelAvatars = await getChannelAvatars(apiKey, channelIds as string[]);
     
     return detailsData.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
 }
 
 
-export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
-    const url = `${YOUTUBE_API_BASE_URL}/channels?part=snippet,statistics,brandingSettings&id=${channelId}&key=${API_KEY}`;
-    const data = await youtubeApiFetch(url);
+export async function getChannelDetails(apiKey: string, channelId: string): Promise<ChannelDetails> {
+    const url = `${YOUTUBE_API_BASE_URL}/channels?part=snippet,statistics,brandingSettings&id=${channelId}`;
+    const data = await youtubeApiFetch(url, apiKey);
     const channel = data.items?.[0];
     if (!channel) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
 
@@ -254,16 +253,16 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
 }
 
 
-export async function getChannelVideos(channelId: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-    let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&channelId=${channelId}&maxResults=20&order=date&type=video&key=${API_KEY}`;
+export async function getChannelVideos(apiKey: string, channelId: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+    let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&channelId=${channelId}&maxResults=20&order=date&type=video`;
     if (pageToken) searchUrl += `&pageToken=${pageToken}`;
 
-    const searchData = await youtubeApiFetch(searchUrl);
+    const searchData = await youtubeApiFetch(searchUrl, apiKey);
     if (!searchData.items || searchData.items.length === 0) return { videos: [] };
     
     const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
-    const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=contentDetails,statistics&id=${videoIds}&key=${API_KEY}`;
-    const detailsData = await youtubeApiFetch(detailsUrl);
+    const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=contentDetails,statistics&id=${videoIds}`;
+    const detailsData = await youtubeApiFetch(detailsUrl, apiKey);
     
     const videoDetailsById = (detailsData.items || []).reduce((acc: any, item: any) => {
         acc[item.id] = {

@@ -2,6 +2,7 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react';
 import { useSubscription } from './SubscriptionContext';
 import type { Notification } from '../types';
+import { useApiKey } from './ApiKeyContext';
 
 interface NotificationContextType {
   notifications: Notification[];
@@ -13,10 +14,10 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
-const API_KEY = process.env.API_KEY;
 
 export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { subscribedChannels } = useSubscription();
+    const { apiKey } = useApiKey();
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [unreadCount, setUnreadCount] = useState<number>(0);
     const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +34,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     }, []);
 
     const fetchNotifications = useCallback(async () => {
-        if (!API_KEY || subscribedChannels.length === 0 || isLoading) {
+        if (!apiKey || subscribedChannels.length === 0 || isLoading) {
             return;
         }
         setIsLoading(true);
@@ -43,7 +44,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         const channelMap = new Map(subscribedChannels.map(c => [c.id, c]));
         
         const requests = subscribedChannels.map(channel => {
-            const url = `${YOUTUBE_API_BASE_URL}/search?part=snippet&channelId=${channel.id}&maxResults=1&order=date&type=video&key=${API_KEY}`;
+            const url = `${YOUTUBE_API_BASE_URL}/search?part=snippet&channelId=${channel.id}&maxResults=1&order=date&type=video&key=${apiKey}`;
             return fetch(url).then(res => res.json());
         });
 
@@ -95,12 +96,12 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
         } finally {
             setIsLoading(false);
         }
-    }, [subscribedChannels, isLoading]);
+    }, [subscribedChannels, isLoading, apiKey]);
 
     useEffect(() => {
         // Fetch on initial load and when subscriptions change
         fetchNotifications();
-    }, [subscribedChannels]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [subscribedChannels, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const markAsRead = useCallback(() => {
         setUnreadCount(0);
