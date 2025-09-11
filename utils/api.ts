@@ -138,7 +138,12 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
 
   try {
-    const response = await fetch(searchUrl, { signal: controller.signal });
+    const response = await fetch(searchUrl, {
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
     clearTimeout(timeoutId);
 
     if (!response.ok) {
@@ -169,10 +174,7 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
     if (error.name === 'AbortError') {
         throw new Error('検索リクエストがタイムアウトしました。しばらくしてからもう一度お試しください。');
     }
-    if (error instanceof Error) {
-        throw new Error(error.message);
-    }
-    throw new Error('検索中に不明なエラーが発生しました。');
+    throw new Error('検索サーバーへの接続に失敗しました。ネットワーク環境を確認するか、しばらくしてからもう一度お試しください。');
   }
 }
 
