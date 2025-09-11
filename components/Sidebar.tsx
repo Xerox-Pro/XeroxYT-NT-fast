@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { HomeIcon, ShortsIcon, SubscriptionsIcon, HistoryIcon, PlaylistIcon } from './icons/Icons';
@@ -47,7 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen }) => {
   }
 
   return (
-    <aside className="fixed top-14 left-0 w-60 h-full bg-yt-white dark:bg-yt-black p-3 pr-2 transition-transform duration-300 ease-in-out z-40 overflow-y-auto">
+    <aside className="fixed top-14 left-0 w-56 h-full bg-yt-white dark:bg-yt-black p-3 pr-2 transition-transform duration-300 ease-in-out z-40 overflow-y-auto">
       <nav className="flex flex-col space-y-1">
         <SidebarItem to="/" icon={<HomeIcon />} label="ホーム" />
         <SidebarItem to="/shorts" icon={<ShortsIcon />} label="ショート" />

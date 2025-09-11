@@ -29,8 +29,7 @@ const App: React.FC = () => {
     setIsSidebarOpen(prev => !prev);
   }, []);
 
-  const isVideoPage = location.pathname === '/watch';
-  const mainContentMargin = isSidebarOpen ? 'ml-60' : 'ml-[72px]';
+  const mainContentMargin = isSidebarOpen ? 'ml-56' : 'ml-[72px]';
 
   return (
     <div className="min-h-screen bg-yt-white dark:bg-yt-black">
@@ -42,7 +41,7 @@ const App: React.FC = () => {
       />
       <div className="flex">
         <Sidebar isOpen={isSidebarOpen} />
-        <main className={`flex-1 p-6 mt-14 ${!isVideoPage ? mainContentMargin : ''} transition-all duration-300`}>
+        <main className={`flex-1 p-6 mt-14 ${mainContentMargin} transition-all duration-300`}>
           {apiKey ? (
             <Routes>
               <Route path="/" element={<HomePage />} />
