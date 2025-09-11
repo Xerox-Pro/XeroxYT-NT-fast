@@ -131,7 +131,7 @@ export async function getRecommendedVideos(apiKey: string, pageToken = ''): Prom
 
 
 export async function searchVideos(apiKey: string, query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const endpoint = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}`;
+  const endpoint = `https://xeroxapp060.vercel.app/api/search2`;
   const url = `${endpoint}?q=${encodeURIComponent(query)}`;
 
   try {
@@ -148,21 +148,23 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
 
     const data = await response.json();
 
-    if (!Array.isArray(data.videos) || data.videos.length === 0) {
+    if (!Array.isArray(data.results) || data.results.length === 0) {
       return { videos: [], nextPageToken: undefined };
     }
     
-    const videos: Video[] = data.videos.map((item: any): Video => ({
-      id: item.videoId,
-      thumbnailUrl: item.thumbnail || 'https://via.placeholder.com/480x270.png?text=No+Thumbnail',
-      duration: item.duration_raw || '',
+    const videos: Video[] = data.results
+    .filter((item: any) => item.type === 'video')
+    .map((item: any): Video => ({
+      id: item.id,
+      thumbnailUrl: item.thumbnails?.high?.url || item.thumbnails?.default?.url || 'https://via.placeholder.com/480x270.png?text=No+Thumbnail',
+      duration: item.duration || '',
       isoDuration: '',
       title: item.title,
-      channelName: item.channelName,
+      channelName: item.channel,
       channelId: item.channelId,
-      channelAvatarUrl: item.channelThumbnail || '',
+      channelAvatarUrl: item.channelIcon || '',
       views: item.viewCount ? `${item.viewCount.replace(/,/g, '')}回視聴` : '視聴回数不明',
-      uploadedAt: item.publishedTime || '',
+      uploadedAt: item.publishedAt || '',
     }));
 
     return { videos, nextPageToken: undefined };
