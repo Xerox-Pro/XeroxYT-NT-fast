@@ -1,3 +1,4 @@
+
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -126,22 +127,44 @@ export async function getRecommendedVideos(apiKey: string, pageToken = ''): Prom
 
 
 export async function searchVideos(apiKey: string, query: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=20&type=video&regionCode=JP`;
-  if(pageToken) searchUrl += `&pageToken=${pageToken}`;
+  // New API does not support pagination.
+  if (pageToken) {
+    return { videos: [], nextPageToken: undefined };
+  }
 
-  const searchData = await youtubeApiFetch(searchUrl, apiKey);
-  if (!searchData.items || searchData.items.length === 0) return { videos: [] };
-  
-  const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
-  const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds}`;
-  const detailsData = await youtubeApiFetch(detailsUrl, apiKey);
-  if (!detailsData.items) return { videos: [] };
+  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=200`;
 
-  const channelIds = [...new Set(detailsData.items.map((item: any) => item.snippet.channelId))];
-  const channelAvatars = await getChannelAvatars(apiKey, channelIds as string[]);
+  try {
+    const response = await fetch(searchUrl);
+    if (!response.ok) {
+      throw new Error(`Xerox APIリクエスト失敗: ${response.status} ${response.statusText}`);
+    }
+    const data = await response.json();
 
-  const videos = detailsData.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
-  return { videos, nextPageToken: searchData.nextPageToken };
+    if (!data.results || data.results.length === 0) {
+      return { videos: [], nextPageToken: undefined };
+    }
+
+    const videoIds: string[] = data.results.map((item: any) => item.id);
+    
+    // Enrich with details from YouTube API to keep UI consistent
+    if (videoIds.length > 0) {
+        const videosWithDetails = await getVideosByIds(apiKey, videoIds);
+        const videoMap = new Map(videosWithDetails.map(v => [v.id, v]));
+        const orderedVideos = videoIds
+            .map(id => videoMap.get(id))
+            .filter((v): v is Video => !!v);
+        return { videos: orderedVideos, nextPageToken: undefined };
+    }
+
+    return { videos: [], nextPageToken: undefined };
+  } catch (error) {
+    console.error('Search API Error:', error);
+    if (error instanceof Error) {
+        throw new Error(error.message);
+    }
+    throw new Error('検索中に不明なエラーが発生しました。');
+  }
 }
 
 
