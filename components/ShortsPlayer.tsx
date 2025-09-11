@@ -6,6 +6,8 @@ import { LikeIcon, DislikeIcon, ShareIcon, MoreIconHorizontal, CommentIcon } fro
 
 
 const ShortsPlayer: React.FC<{ video: Video }> = ({ video }) => {
+    const viewsText = video.views.includes('不明') ? '...' : video.views.split('回')[0];
+
     return (
         <div className="h-full w-full max-w-[400px] aspect-[9/16] relative snap-start flex-shrink-0 rounded-2xl overflow-hidden bg-yt-black">
             <iframe
@@ -35,7 +37,7 @@ const ShortsPlayer: React.FC<{ video: Video }> = ({ video }) => {
             <div className="absolute bottom-20 right-2 flex flex-col items-center space-y-4">
                 <button className="flex flex-col items-center p-2 rounded-full bg-black/50">
                     <LikeIcon />
-                    <span className="text-xs mt-1">{video.views.split('回')[0]}</span>
+                    <span className="text-xs mt-1">{viewsText}</span>
                 </button>
                 <button className="flex flex-col items-center p-2 rounded-full bg-black/50">
                     <DislikeIcon />

@@ -30,6 +30,7 @@ const formatDuration = (duration: string): string => {
 };
 
 export const formatTimeAgo = (dateStr: string): string => {
+  if (!dateStr) return '';
   if (!dateStr.endsWith('Z')) { // Handle relative time strings from unofficial API
       return dateStr;
   }
@@ -131,7 +132,7 @@ export async function getRecommendedVideos(apiKey: string, pageToken = ''): Prom
 
 
 export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const endpoint = `https://xeroxapp060.vercel.app/api/search2`;
+  const endpoint = `https://xeroxapp060.vercel.app/api/search`;
   const url = `${endpoint}?q=${encodeURIComponent(query)}`;
 
   try {
@@ -153,18 +154,17 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
     }
     
     const videos: Video[] = data.results
-    .filter((item: any) => item.type === 'video')
     .map((item: any): Video => ({
       id: item.id,
-      thumbnailUrl: item.thumbnails?.high?.url || item.thumbnails?.default?.url || 'https://via.placeholder.com/480x270.png?text=No+Thumbnail',
+      thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
       duration: item.duration || '',
       isoDuration: '',
       title: item.title,
       channelName: item.channel,
       channelId: item.channelId,
       channelAvatarUrl: item.channelIcon || '',
-      views: item.viewCount ? `${item.viewCount.replace(/,/g, '')}回視聴` : '視聴回数不明',
-      uploadedAt: item.publishedAt || '',
+      views: '視聴回数不明',
+      uploadedAt: '',
     }));
 
     return { videos, nextPageToken: undefined };
