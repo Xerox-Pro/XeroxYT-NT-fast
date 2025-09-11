@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ShortsPlayer from '../components/ShortsPlayer';
-import { searchVideos } from '../utils/api';
+import { searchVideos, getRecommendedVideos } from '../utils/api';
 import type { Video } from '../types';
 import { useApiKey } from '../contexts/ApiKeyContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -15,15 +15,20 @@ const ShortsPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const shortsQuery = useMemo(() => {
+    const shortsQueryTerms = useMemo(() => {
         const terms = new Set<string>();
-        subscribedChannels.forEach(c => terms.add(`"${c.name}"`));
-        searchHistory.slice(0, 10).forEach(h => terms.add(h));
-        if (terms.size === 0) {
-            return "popular trending #shorts";
-        }
-        return Array.from(terms).join(' | ') + ' | #shorts';
+        subscribedChannels.forEach(c => terms.add(`"${c.name} #shorts"`));
+        searchHistory.slice(0, 5).forEach(h => terms.add(`${h} #shorts`));
+        return Array.from(terms);
     }, [subscribedChannels, searchHistory]);
+
+    const shuffleArray = (array: any[]) => {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
 
     const loadShorts = useCallback(async () => {
         if (!apiKey) return;
@@ -32,15 +37,31 @@ const ShortsPage: React.FC = () => {
         setError(null);
         
         try {
-            const { videos: newVideos } = await searchVideos(apiKey, shortsQuery);
-            setVideos(newVideos);
+            const promises = [
+                searchVideos(apiKey, 'trending #shorts').then(res => res.videos),
+                ...shortsQueryTerms.map(term => searchVideos(apiKey, term, '').then(res => res.videos))
+            ];
+            
+            const results = await Promise.allSettled(promises);
+            
+            let allVideos: Video[] = [];
+            results.forEach(result => {
+                if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+                    allVideos.push(...result.value);
+                }
+            });
+
+            const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.id, v])).values());
+            
+            setVideos(shuffleArray(uniqueVideos));
+
         } catch (err: any) {
             setError(err.message || 'ショート動画の読み込みに失敗しました。');
             console.error(err);
         } finally {
             setIsLoading(false);
         }
-    }, [apiKey, shortsQuery]);
+    }, [apiKey, shortsQueryTerms]);
 
     useEffect(() => {
         loadShorts();

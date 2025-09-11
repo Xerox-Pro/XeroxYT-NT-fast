@@ -7,7 +7,7 @@ import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkel
 import RelatedVideoCard from '../components/RelatedVideoCard';
 import Comment from '../components/Comment';
 import PlaylistModal from '../components/PlaylistModal';
-import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal } from '../components/icons/Icons';
+import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, DislikeIconFilled } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useApiKey } from '../contexts/ApiKeyContext';
 
@@ -34,6 +34,8 @@ const VideoPlayerPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isDisliked, setIsDisliked] = useState(false);
 
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
 
@@ -89,6 +91,16 @@ const VideoPlayerPage: React.FC = () => {
     }
   };
 
+  const handleLike = () => {
+    setIsLiked(!isLiked);
+    if (isDisliked) setIsDisliked(false);
+  }
+
+  const handleDislike = () => {
+    setIsDisliked(!isDisliked);
+    if (isLiked) setIsLiked(false);
+  }
+
   return (
     <>
     {isPlaylistModalOpen && videoId && (
@@ -127,14 +139,14 @@ const VideoPlayerPage: React.FC = () => {
             </div>
             <div className="flex items-center space-x-2 flex-wrap">
                 {/* Like/Dislike Buttons */}
-                <div className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-10 overflow-hidden">
-                    <button className="flex items-center pl-4 pr-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
-                        <LikeIcon />
-                        <span className="ml-2 text-sm font-semibold">{likes}</span>
+                <div className="flex items-center rounded-full h-10 bg-yt-light dark:bg-yt-dark-gray">
+                    <button onClick={handleLike} className="flex items-center gap-2 pl-4 pr-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 rounded-l-full transition-colors">
+                        {isLiked ? <LikeIconFilled /> : <LikeIcon />}
+                        <span className="text-sm font-semibold">{likes}</span>
                     </button>
-                    <div className="w-px h-full bg-yt-spec-light-20 dark:bg-yt-spec-20 my-2"></div>
-                    <button className="flex items-center px-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
-                        <DislikeIcon />
+                    <div className="w-px h-6 bg-yt-spec-light-20 dark:bg-yt-spec-20"></div>
+                    <button onClick={handleDislike} className="flex items-center px-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 rounded-r-full transition-colors">
+                        {isDisliked ? <DislikeIconFilled /> : <DislikeIcon />}
                     </button>
                 </div>
 

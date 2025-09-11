@@ -1,5 +1,5 @@
 
-import type { Video, VideoDetails, Channel, Comment, ChannelDetails } from '../types';
+import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
@@ -246,7 +246,7 @@ export async function getChannelDetails(apiKey: string, channelId: string): Prom
     return {
         id: channel.id,
         name: channel.snippet.title,
-        avatarUrl: channel.snippet.thumbnails.default.url,
+        avatarUrl: channel.snippet.thumbnails.high?.url || channel.snippet.thumbnails.default.url,
         subscriberCount: `チャンネル登録者数 ${formatNumber(channel.statistics.subscriberCount)}人`,
         bannerUrl: channel.brandingSettings.image?.bannerExternalUrl,
     };
@@ -285,4 +285,18 @@ export async function getChannelVideos(apiKey: string, channelId: string, pageTo
     }));
     
     return { videos, nextPageToken: searchData.nextPageToken };
+}
+
+export async function getChannelPlaylists(apiKey: string, channelId: string, pageToken = ''): Promise<{playlists: ApiPlaylist[], nextPageToken?: string}> {
+    let url = `${YOUTUBE_API_BASE_URL}/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=25`;
+    if(pageToken) url += `&pageToken=${pageToken}`;
+    
+    const data = await youtubeApiFetch(url, apiKey);
+    const playlists: ApiPlaylist[] = (data.items || []).map((item: any): ApiPlaylist => ({
+        id: item.id,
+        title: item.snippet.title,
+        thumbnailUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
+        videoCount: item.contentDetails.itemCount,
+    }));
+    return { playlists, nextPageToken: data.nextPageToken };
 }

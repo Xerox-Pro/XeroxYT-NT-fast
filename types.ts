@@ -12,7 +12,7 @@ export interface Video {
 }
 
 export interface Channel {
-  id: string;
+  id:string;
   name: string;
   avatarUrl: string;
   subscriberCount: string;
@@ -64,4 +64,11 @@ export interface Notification {
     thumbnailUrl: string;
   };
   publishedAt: string;
+}
+
+export interface ApiPlaylist {
+  id: string;
+  title: string;
+  thumbnailUrl: string;
+  videoCount: number;
 }

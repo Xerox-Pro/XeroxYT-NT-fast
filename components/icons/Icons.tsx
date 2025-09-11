@@ -74,19 +74,33 @@ export const HistoryIcon: React.FC = () => (
 
 export const LikeIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
+        <path d="M18.77,11h-4.23l1.52-4.94C16.38,5.03,15.54,4,14.38,4c-0.58,0-1.14,0.24-1.52,0.65L7,11H3v10h4h1h9.43 c1.06,0,1.98-0.67,2.19-1.61l1.34-6C21.23,12.15,20.18,11,18.77,11z M7,20H4v-8h3V20z M19.98,13.17l-1.34,6 C18.54,19.65,18.03,20,17.43,20H8v-8.61l5.6-6.06C13.79,5.12,14.08,5,14.38,5c0.26,0,0.5,0.11,0.63,0.3 c0.11,0.15,0.15,0.34,0.09,0.51l-1.52,4.94L13.18,12h1.35h4.23c0.41,0,0.8,0.17,1.03,0.46C19.92,12.61,20.05,12.86,19.98,13.17z"></path>
+    </svg>
+);
+
+export const LikeIconFilled: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
         <path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"></path>
     </svg>
 );
 
+
 export const DislikeIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
+        <path d="M17,4h-1H8H4v10h3v-1.6l5.6-6.06C12.79,6.12,13.08,6,13.38,6c0.26,0,0.5,0.11,0.63,0.3c0.11,0.15,0.15,0.34,0.09,0.51 l-1.52,4.94L11.66,13h1.35h4.23c0.41,0,0.8,0.17,1.03,0.46C18.42,13.61,18.55,13.86,18.48,14.17l-1.34,6 C17.04,20.65,16.53,21,15.93,21H8V11H4.57c-1.06,0-1.98-0.67-2.19-1.61l-1.34-6C0.77,2.85,1.82,2,3.23,2H9.8 c0.58,0,1.14,0.24,1.52,0.65L17,8.29V4z M20,2v10h3V2H20z"></path>
+    </svg>
+);
+
+export const DislikeIconFilled: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
         <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79-.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"></path>
     </svg>
 );
 
+
 export const ShareIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
-        <path d="M15 5.63 20.66 12 15 18.37V15v-1h-1c-3.96 0-7.14 1.28-9.04 3.81.67-3.33 3.33-6.44 9.04-7.19 0-.13.02-.27.02-.4V5.63M14 3v4.37c-5.48.55-9.84 3.9-11.23 8.84.46-2.07 1.63-3.87 3.23-5.29 1.53-1.35 3.5-2.35 5.77-2.82V12l8-9-8-9z"></path>
+        <path d="M15,13V9.56l7,7.02l-7,7.02V19.5h-1c-5.34,0-9.95-2.92-12-7.5c2.09,4.45,6.58,7.5,12,7.5h1V21l7-7.02l-7-7.02V9h-1 C9.86,9,11.85,10.63,15,13z"></path>
     </svg>
 );
 
