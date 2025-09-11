@@ -22,10 +22,11 @@ const App: React.FC = () => {
   const { apiKey, isModalOpen, openModal } = useApiKey();
 
   useEffect(() => {
-    if (!apiKey) {
+    // Don't prompt for key on search results page
+    if (!apiKey && location.pathname !== '/results') {
       openModal();
     }
-  }, [apiKey, openModal]);
+  }, [apiKey, openModal, location.pathname]);
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen(prev => !prev);
@@ -34,6 +35,21 @@ const App: React.FC = () => {
   const isShortsPage = location.pathname === '/shorts';
   const mainContentMargin = isSidebarOpen && !isShortsPage ? 'ml-56' : !isShortsPage ? 'ml-[72px]' : '';
   const mainContentPadding = isShortsPage ? '' : 'p-6';
+  
+  const ApiKeyPrompt = () => (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
+          <h2 className="text-2xl font-bold mb-4">ようこそ XeroxYT-NTへ</h2>
+          <p className="text-yt-light-gray mb-6">
+            {location.pathname === '/' ? 'アプリ' : 'この機能'}を使用するにはYouTube APIキーが必要です。
+          </p>
+          <button 
+              onClick={openModal}
+              className="bg-yt-blue text-white font-semibold px-6 py-2 rounded-lg hover:opacity-90 transition-opacity"
+          >
+              APIキーを設定
+          </button>
+      </div>
+  );
 
   return (
     <div className="min-h-screen bg-yt-white dark:bg-yt-black">
@@ -58,16 +74,10 @@ const App: React.FC = () => {
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
             </Routes>
           ) : (
-            <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">
-                <h2 className="text-2xl font-bold mb-4">ようこそ XeroxYT-NTへ</h2>
-                <p className="text-yt-light-gray mb-6">アプリを使用するにはYouTube APIキーが必要です。</p>
-                <button 
-                    onClick={openModal}
-                    className="bg-yt-blue text-white font-semibold px-6 py-2 rounded-lg hover:opacity-90 transition-opacity"
-                >
-                    APIキーを設定
-                </button>
-            </div>
+            <Routes>
+              <Route path="/results" element={<SearchResultsPage />} />
+              <Route path="*" element={<ApiKeyPrompt />} />
+            </Routes>
           )}
         </main>
       </div>

@@ -130,7 +130,7 @@ export async function getRecommendedVideos(apiKey: string, pageToken = ''): Prom
 }
 
 
-export async function searchVideos(apiKey: string, query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
+export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
   const endpoint = `https://xeroxapp060.vercel.app/api/search2`;
   const url = `${endpoint}?q=${encodeURIComponent(query)}`;
 

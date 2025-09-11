@@ -5,7 +5,6 @@ import { searchVideos } from '../utils/api';
 import type { Video } from '../types';
 import SearchVideoResultCard from '../components/SearchVideoResultCard';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton'; // Using a generic skeleton for now
-import { useApiKey } from '../contexts/ApiKeyContext';
 
 const useInfiniteScroll = (callback: () => void) => {
     const observer = useRef<IntersectionObserver | null>(null);
@@ -25,7 +24,6 @@ const useInfiniteScroll = (callback: () => void) => {
 const SearchResultsPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('search_query');
-    const { apiKey } = useApiKey();
     
     const [videos, setVideos] = useState<Video[]>([]);
     const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
@@ -34,13 +32,13 @@ const SearchResultsPage: React.FC = () => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const performSearch = useCallback(async (searchQuery: string, token?: string) => {
-        if (!apiKey || !searchQuery) return;
+        if (!searchQuery) return;
         
         setError(null);
         token ? setIsLoadingMore(true) : setIsLoading(true);
         
         try {
-            const { videos: newVideos, nextPageToken: nextToken } = await searchVideos(apiKey, searchQuery, token);
+            const { videos: newVideos, nextPageToken: nextToken } = await searchVideos(searchQuery, token);
             setVideos(prev => token ? [...prev, ...newVideos] : newVideos);
             setNextPageToken(nextToken);
         } catch (err: any) {
@@ -49,17 +47,17 @@ const SearchResultsPage: React.FC = () => {
         } finally {
             token ? setIsLoadingMore(false) : setIsLoading(false);
         }
-    }, [apiKey]);
+    }, []);
 
     useEffect(() => {
         setVideos([]);
         setNextPageToken(undefined);
-        if (query && apiKey) {
+        if (query) {
             performSearch(query);
         } else {
             setIsLoading(false);
         }
-    }, [query, performSearch, apiKey]);
+    }, [query, performSearch]);
 
     const handleLoadMore = useCallback(() => {
         if (!isLoadingMore && nextPageToken && query) {
