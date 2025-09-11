@@ -132,7 +132,7 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
     return { videos: [], nextPageToken: undefined };
   }
 
-  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=200`;
+  const searchUrl = `https://siawaseok.duckdns.org/api/search?q=${encodeURIComponent(query)}`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
