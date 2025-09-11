@@ -117,17 +117,10 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
 // --- EXPORTED API FUNCTIONS ---
 
 export async function getRecommendedVideos(apiKey: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  let url = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=JP&maxResults=20`;
-  if(pageToken) url += `&pageToken=${pageToken}`;
-  
-  const data = await youtubeApiFetch(url, apiKey);
-  if (!data.items) return { videos: [] };
-
-  const channelIds = [...new Set(data.items.map((item: any) => item.snippet.channelId))];
-  const channelAvatars = await getChannelAvatars(apiKey, channelIds as string[]);
-
-  const videos = data.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
-  return { videos, nextPageToken: data.nextPageToken };
+  // Use the new search API for recommendations as requested by the user.
+  // Using "プロセカ" as the search term based on the user's sample data.
+  // The pageToken is passed but will be ignored by the new API.
+  return searchVideos("プロセカ", pageToken);
 }
 
 
@@ -149,11 +142,12 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 
     const data = await response.json();
 
-    if (!Array.isArray(data.results) || data.results.length === 0) {
+    if (!data || !Array.isArray(data.results) || data.results.length === 0) {
       return { videos: [], nextPageToken: undefined };
     }
     
     const videos: Video[] = data.results
+    .filter(Boolean) // Add filter to prevent crash on malformed data like [null]
     .map((item: any): Video => ({
       id: item.id,
       thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,

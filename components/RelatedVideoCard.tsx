@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Video } from '../types';
@@ -21,7 +22,7 @@ const RelatedVideoCard: React.FC<RelatedVideoCardProps> = ({ video }) => {
         </h3>
         <p className="text-yt-light-gray text-xs mt-1">{video.channelName}</p>
         <p className="text-yt-light-gray text-xs">
-          {[video.views, video.uploadedAt].filter(Boolean).join(' \u2022 ')}
+          {[video.views?.includes('不明') ? null : video.views, video.uploadedAt].filter(Boolean).join(' \u2022 ')}
         </p>
       </div>
     </Link>

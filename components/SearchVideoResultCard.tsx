@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Video } from '../types';
@@ -20,7 +21,7 @@ const SearchVideoResultCard: React.FC<SearchVideoResultCardProps> = ({ video }) 
           {video.title}
         </h3>
         <p className="text-yt-light-gray text-sm mt-2">
-            {[video.views, video.uploadedAt].filter(Boolean).join(' \u2022 ')}
+            {[video.views?.includes('不明') ? null : video.views, video.uploadedAt].filter(Boolean).join(' \u2022 ')}
         </p>
         <div className="flex items-center mt-3">
           <Link to={`/channel/${video.channelId}`} className="flex-shrink-0" onClick={e => e.stopPropagation()}>
