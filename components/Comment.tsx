@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Comment as CommentType } from '../types';
 import { LikeIcon, DislikeIcon } from './icons/Icons';
@@ -15,16 +16,16 @@ const Comment: React.FC<CommentProps> = ({ comment }) => {
                     <p className="font-semibold text-sm mr-2">{comment.author}</p>
                     <p className="text-xs text-yt-light-gray">{comment.publishedAt}</p>
                 </div>
-                <p className="text-sm">{comment.text}</p>
+                <div className="text-sm whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: comment.text }}></div>
                 <div className="flex items-center mt-2 space-x-4">
-                    <button className="flex items-center">
+                    <button className="flex items-center text-yt-icon dark:text-yt-light-gray hover:text-black dark:hover:text-white">
                         <LikeIcon />
-                        <span className="text-xs ml-1 text-yt-light-gray">{comment.likes}</span>
+                        <span className="text-xs ml-1">{comment.likes !== '0' && comment.likes}</span>
                     </button>
-                    <button>
+                    <button className="text-yt-icon dark:text-yt-light-gray hover:text-black dark:hover:text-white">
                         <DislikeIcon />
                     </button>
-                    <button className="text-xs font-semibold">Reply</button>
+                    <button className="text-sm font-semibold hover:text-black dark:hover:text-white">返信</button>
                 </div>
             </div>
         </div>

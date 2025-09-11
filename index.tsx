@@ -1,7 +1,11 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import { PlaylistProvider } from './contexts/PlaylistContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,6 +15,14 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <SubscriptionProvider>
+        <PlaylistProvider>
+          <NotificationProvider>
+            <App />
+          </NotificationProvider>
+        </PlaylistProvider>
+      </SubscriptionProvider>
+    </BrowserRouter>
   </React.StrictMode>
 );

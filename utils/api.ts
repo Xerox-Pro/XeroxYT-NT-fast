@@ -1,4 +1,5 @@
-import type { Video, VideoDetails, Channel, Comment } from '../types';
+
+import type { Video, VideoDetails, Channel, Comment, ChannelDetails } from '../types';
 
 const API_KEY = process.env.API_KEY;
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -7,10 +8,10 @@ const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
 const formatNumber = (numStr: string | number): string => {
   const num = Number(numStr);
-  if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
-  if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
-  return num.toString();
+  if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
+  if (num >= 10_000) return `${Math.floor(num / 10_000)}万`;
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}千`;
+  return num.toLocaleString();
 };
 
 const formatDuration = (duration: string): string => {
@@ -27,29 +28,29 @@ const formatDuration = (duration: string): string => {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 };
 
-const formatTimeAgo = (dateStr: string): string => {
+export const formatTimeAgo = (dateStr: string): string => {
   const date = new Date(dateStr);
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
   let interval = seconds / 31536000;
-  if (interval > 1) return `${Math.floor(interval)} years ago`;
+  if (interval > 1) return `${Math.floor(interval)}年前`;
   interval = seconds / 2592000;
-  if (interval > 1) return `${Math.floor(interval)} months ago`;
+  if (interval > 1) return `${Math.floor(interval)}ヶ月前`;
   interval = seconds / 86400;
-  if (interval > 1) return `${Math.floor(interval)} days ago`;
+  if (interval > 1) return `${Math.floor(interval)}日前`;
   interval = seconds / 3600;
-  if (interval > 1) return `${Math.floor(interval)} hours ago`;
+  if (interval > 1) return `${Math.floor(interval)}時間前`;
   interval = seconds / 60;
-  if (interval > 1) return `${Math.floor(interval)} minutes ago`;
-  return `${Math.floor(seconds)} seconds ago`;
+  if (interval > 1) return `${Math.floor(interval)}分前`;
+  return `${Math.floor(seconds)}秒前`;
 };
 
 // --- CENTRALIZED API FETCHER ---
 
 const youtubeApiFetch = async (url: string) => {
   if (!API_KEY) {
-    throw new Error("YouTube API key is missing. Please set the API_KEY environment variable.");
+    throw new Error("YouTube APIキーがありません。API_KEY環境変数を設定してください。");
   }
 
   const response = await fetch(url);
@@ -59,21 +60,11 @@ const youtubeApiFetch = async (url: string) => {
     try {
       errorJson = await response.json();
     } catch (e) {
-      throw new Error(`YouTube API request failed: ${response.status} ${response.statusText}`);
+      throw new Error(`YouTube APIリクエスト失敗: ${response.status} ${response.statusText}`);
     }
     
     console.error('YouTube API Error:', JSON.stringify(errorJson, null, 2));
-
-    const errorMessage = errorJson?.error?.message || 'An unknown API error occurred.';
-
-    const isApiKeyInvalid = errorJson?.error?.details?.some(
-      (detail: any) => detail.reason === 'API_KEY_INVALID'
-    );
-
-    if (isApiKeyInvalid) {
-      throw new Error("API key not valid. Please ensure your API_KEY environment variable is configured correctly.");
-    }
-
+    const errorMessage = errorJson?.error?.message || '不明なAPIエラーが発生しました。';
     throw new Error(errorMessage);
   }
   
@@ -89,21 +80,20 @@ async function getChannelAvatars(channelIds: string[]): Promise<Record<string, s
   try {
     const data = await youtubeApiFetch(url);
     const avatars: Record<string, string> = {};
-    data.items.forEach((item: any) => {
+    (data.items || []).forEach((item: any) => {
       avatars[item.id] = item.snippet.thumbnails.default.url;
     });
     return avatars;
   } catch(error) {
-    console.error("Error fetching channel avatars:", error);
-    // Propagate the error to let the caller decide how to handle it
-    throw error;
+    console.error("チャンネルアバターの取得エラー:", error);
+    return {};
   }
 }
 
 const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): Video => {
   const videoId = typeof item.id === 'object' ? item.id.videoId : item.id;
   const snippet = item.snippet;
-  const views = item.statistics?.viewCount ? `${formatNumber(item.statistics.viewCount)} views` : 'Views unavailable';
+  const views = item.statistics?.viewCount ? `${formatNumber(item.statistics.viewCount)}回視聴` : '視聴回数不明';
   
   return {
     id: videoId,
@@ -111,6 +101,7 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
     duration: item.contentDetails?.duration ? formatDuration(item.contentDetails.duration) : '',
     title: snippet.title,
     channelName: snippet.channelTitle,
+    channelId: snippet.channelId,
     channelAvatarUrl: channelAvatars[snippet.channelId] || '',
     views: views,
     uploadedAt: formatTimeAgo(snippet.publishedAt),
@@ -119,32 +110,38 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
 
 // --- EXPORTED API FUNCTIONS ---
 
-export async function getRecommendedVideos(): Promise<Video[]> {
-  const url = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=US&maxResults=20&key=${API_KEY}`;
+export async function getRecommendedVideos(pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+  let url = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&chart=mostPopular&regionCode=JP&maxResults=20&key=${API_KEY}`;
+  if(pageToken) url += `&pageToken=${pageToken}`;
+  
   const data = await youtubeApiFetch(url);
-  if (!data.items) return [];
+  if (!data.items) return { videos: [] };
 
   const channelIds = [...new Set(data.items.map((item: any) => item.snippet.channelId))];
   const channelAvatars = await getChannelAvatars(channelIds as string[]);
 
-  return data.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
+  const videos = data.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
+  return { videos, nextPageToken: data.nextPageToken };
 }
 
 
-export async function searchVideos(query: string): Promise<Video[]> {
-  const searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=20&type=video&key=${API_KEY}`;
+export async function searchVideos(query: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+  let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&q=${encodeURIComponent(query)}&maxResults=20&type=video&regionCode=JP&key=${API_KEY}`;
+  if(pageToken) searchUrl += `&pageToken=${pageToken}`;
+
   const searchData = await youtubeApiFetch(searchUrl);
-  if (!searchData.items || searchData.items.length === 0) return [];
+  if (!searchData.items || searchData.items.length === 0) return { videos: [] };
   
   const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
   const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`;
   const detailsData = await youtubeApiFetch(detailsUrl);
-  if (!detailsData.items) return [];
+  if (!detailsData.items) return { videos: [] };
 
   const channelIds = [...new Set(detailsData.items.map((item: any) => item.snippet.channelId))];
   const channelAvatars = await getChannelAvatars(channelIds as string[]);
 
-  return detailsData.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
+  const videos = detailsData.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
+  return { videos, nextPageToken: searchData.nextPageToken };
 }
 
 
@@ -153,11 +150,11 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
   const relatedVideosUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&relatedToVideoId=${videoId}&type=video&maxResults=15&key=${API_KEY}`;
   const commentsUrl = `${YOUTUBE_API_BASE_URL}/commentThreads?part=snippet&videoId=${videoId}&maxResults=20&order=relevance&key=${API_KEY}`;
   
-  const optionalFetch = async (url: string) => {
+  const optionalFetch = async (url: string, fetchName: string) => {
     try {
       return await youtubeApiFetch(url);
     } catch (e) {
-      console.error(`Optional API call failed for ${new URL(url).pathname}:`, e);
+      console.error(`${fetchName} のAPI呼び出し失敗:`, e);
       return null;
     }
   };
@@ -165,38 +162,33 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
   const [videoData, relatedData, commentsData, channelData] = await (async () => {
     const mainVideoData = await youtubeApiFetch(videoDetailsUrl);
     const videoItem = mainVideoData.items?.[0];
-    if (!videoItem) throw new Error(`Video with ID ${videoId} not found.`);
+    if (!videoItem) throw new Error(`ID ${videoId} の動画が見つかりません。`);
     
     const channelId = videoItem.snippet.channelId;
     const channelUrl = `${YOUTUBE_API_BASE_URL}/channels?part=snippet,statistics&id=${channelId}&key=${API_KEY}`;
 
     const [related, comments, channel] = await Promise.all([
-      optionalFetch(relatedVideosUrl),
-      optionalFetch(commentsUrl),
+      optionalFetch(relatedVideosUrl, '関連動画'),
+      optionalFetch(commentsUrl, 'コメント'),
       youtubeApiFetch(channelUrl)
     ]);
     
     return [videoItem, related, comments, channel.items?.[0]];
   })();
 
-  if (!channelData) throw new Error(`Channel details not found for video ${videoId}.`);
+  if (!channelData) throw new Error(`動画 ${videoId} のチャンネル詳細が見つかりません。`);
 
   const channel: Channel = {
+    id: channelData.id,
     name: channelData.snippet.title,
     avatarUrl: channelData.snippet.thumbnails.default.url,
-    subscriberCount: `${formatNumber(channelData.statistics.subscriberCount)} subscribers`,
+    subscriberCount: `チャンネル登録者数 ${formatNumber(channelData.statistics.subscriberCount)}人`,
   };
   
   let relatedVideos: Video[] = [];
   if (relatedData?.items?.length > 0) {
-    const relatedVideoIds = relatedData.items.map((item: any) => item.id.videoId).join(',');
-    const relatedDetailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${relatedVideoIds}&key=${API_KEY}`;
-    const relatedDetailsData = await optionalFetch(relatedDetailsUrl);
-    if(relatedDetailsData) {
-        const relatedChannelIds = [...new Set(relatedDetailsData.items.map((item: any) => item.snippet.channelId))];
-        const relatedChannelAvatars = await getChannelAvatars(relatedChannelIds as string[]).catch(() => ({}));
-        relatedVideos = relatedDetailsData.items.map((item: any) => mapApiItemToVideo(item, relatedChannelAvatars));
-    }
+    const videos = await getVideosByIds(relatedData.items.map((item: any) => item.id.videoId));
+    relatedVideos = videos;
   }
 
   let comments: Comment[] = [];
@@ -216,13 +208,14 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 
   return {
     id: videoData.id,
+    channelId: videoData.snippet.channelId,
     thumbnailUrl: videoData.snippet.thumbnails.high.url,
     duration: formatDuration(videoData.contentDetails.duration),
     title: videoData.snippet.title,
     channelName: videoData.snippet.channelTitle,
     channelAvatarUrl: channel.avatarUrl,
-    views: `${parseInt(videoData.statistics.viewCount).toLocaleString()} views`,
-    uploadedAt: formatTimeAgo(videoData.snippet.publishedAt),
+    views: `${parseInt(videoData.statistics.viewCount).toLocaleString()}回視聴`,
+    uploadedAt: new Date(videoData.snippet.publishedAt).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' }),
     description: videoData.snippet.description,
     likes: formatNumber(videoData.statistics.likeCount),
     dislikes: '0',
@@ -230,4 +223,67 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     relatedVideos: relatedVideos,
     comments: comments
   };
+}
+
+export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
+    if (videoIds.length === 0) return [];
+    const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds.join(',')}&key=${API_KEY}`;
+    const detailsData = await youtubeApiFetch(detailsUrl);
+    if (!detailsData.items) return [];
+
+    const channelIds = [...new Set(detailsData.items.map((item: any) => item.snippet.channelId))];
+    const channelAvatars = await getChannelAvatars(channelIds as string[]);
+    
+    return detailsData.items.map((item: any) => mapApiItemToVideo(item, channelAvatars));
+}
+
+
+export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
+    const url = `${YOUTUBE_API_BASE_URL}/channels?part=snippet,statistics,brandingSettings&id=${channelId}&key=${API_KEY}`;
+    const data = await youtubeApiFetch(url);
+    const channel = data.items?.[0];
+    if (!channel) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
+
+    return {
+        id: channel.id,
+        name: channel.snippet.title,
+        avatarUrl: channel.snippet.thumbnails.default.url,
+        subscriberCount: `チャンネル登録者数 ${formatNumber(channel.statistics.subscriberCount)}人`,
+        bannerUrl: channel.brandingSettings.image?.bannerExternalUrl,
+    };
+}
+
+
+export async function getChannelVideos(channelId: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+    let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&channelId=${channelId}&maxResults=20&order=date&type=video&key=${API_KEY}`;
+    if (pageToken) searchUrl += `&pageToken=${pageToken}`;
+
+    const searchData = await youtubeApiFetch(searchUrl);
+    if (!searchData.items || searchData.items.length === 0) return { videos: [] };
+    
+    const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
+    const detailsUrl = `${YOUTUBE_API_BASE_URL}/videos?part=contentDetails,statistics&id=${videoIds}&key=${API_KEY}`;
+    const detailsData = await youtubeApiFetch(detailsUrl);
+    
+    const videoDetailsById = (detailsData.items || []).reduce((acc: any, item: any) => {
+        acc[item.id] = {
+            duration: item.contentDetails?.duration ? formatDuration(item.contentDetails.duration) : '',
+            views: item.statistics?.viewCount ? `${formatNumber(item.statistics.viewCount)}回視聴` : '視聴回数不明',
+        };
+        return acc;
+    }, {});
+
+    const videos: Video[] = searchData.items.map((item: any): Video => ({
+        id: item.id.videoId,
+        thumbnailUrl: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.default.url,
+        title: item.snippet.title,
+        channelName: item.snippet.channelTitle,
+        channelId: item.snippet.channelId,
+        uploadedAt: formatTimeAgo(item.snippet.publishedAt),
+        duration: videoDetailsById[item.id.videoId]?.duration || '',
+        views: videoDetailsById[item.id.videoId]?.views || '視聴回数不明',
+        channelAvatarUrl: '', 
+    }));
+    
+    return { videos, nextPageToken: searchData.nextPageToken };
 }

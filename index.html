@@ -1,40 +1,65 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF--8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>React YouTube Clone</title>
+    <title>XeroxYT-NT</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              'yt-black': '#0f0f0f',
-              'yt-dark': '#272727',
-              'yt-dark-gray': '#3f3f3f',
-              'yt-light-gray': '#aaaaaa',
-              'yt-red': '#ff0000',
+              'yt-white': 'hsl(0, 0%, 100%)',
+              'yt-black': 'hsl(0, 0%, 6%)',
+              'yt-light-black': 'hsl(0, 0%, 15%)',
+              'yt-light': 'hsl(0, 0%, 93%)',
+              'yt-gray': 'hsl(0, 0%, 25%)',
+              'yt-dark-gray': 'hsl(0, 0%, 18%)',
+              'yt-light-gray': 'hsl(0, 0%, 60%)',
+              'yt-icon': 'hsl(0, 0%, 38%)',
+              'yt-red': 'hsl(0, 100%, 50%)',
+              'yt-blue': 'hsl(210, 83%, 49%)',
+              'yt-spec-10': 'rgba(255, 255, 255, 0.1)',
+              'yt-spec-20': 'rgba(255, 255, 255, 0.2)',
+              'yt-spec-light-10': 'rgba(0, 0, 0, 0.1)',
+              'yt-spec-light-20': 'rgba(0, 0, 0, 0.2)',
+            },
+            fontFamily: {
+              sans: ['Roboto', 'sans-serif'],
             }
           }
         }
       }
     </script>
+    <link rel="stylesheet" href="/styles.css">
     <link rel="icon" href="https://www.youtube.com/s/desktop/03dd36f0/img/favicon.ico" type="image/x-icon">
     <link rel="shortcut icon" href="https://www.youtube.com/s/desktop/03dd36f0/img/favicon.ico" type="image/x-icon">
-
+    <script>
+      // Prevent FOUC by applying theme from localStorage before React loads
+      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
     "react": "https://aistudiocdn.com/react@^19.1.1",
-    "react/": "https://aistudiocdn.com/react@^19.1.1/"
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^6.25.1",
+    "uuid": "https://aistudiocdn.com/uuid@^13.0.0"
   }
 }
 </script>
 </head>
-  <body class="bg-yt-black text-white">
+  <body class="bg-yt-white dark:bg-yt-black text-black dark:text-yt-white font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

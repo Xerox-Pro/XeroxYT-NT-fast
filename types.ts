@@ -1,18 +1,25 @@
+
 export interface Video {
   id: string;
   thumbnailUrl: string;
   duration: string;
   title: string;
   channelName: string;
+  channelId: string;
   channelAvatarUrl: string;
   views: string;
   uploadedAt: string;
 }
 
 export interface Channel {
+  id: string;
   name: string;
   avatarUrl: string;
   subscriberCount: string;
+}
+
+export interface ChannelDetails extends Channel {
+    bannerUrl?: string;
 }
 
 export interface Comment {
@@ -31,4 +38,30 @@ export interface VideoDetails extends Video {
   channel: Channel;
   relatedVideos: Video[];
   comments: Comment[];
+}
+
+export interface Playlist {
+  id: string;
+  name: string;
+  videoIds: string[];
+  createdAt: string;
+}
+
+export interface PlaylistVideo extends Video {
+  addedAt: string;
+}
+
+export interface Notification {
+  id: string; // videoId
+  channel: {
+    id: string;
+    name: string;
+    avatarUrl: string;
+  };
+  video: {
+    id: string;
+    title: string;
+    thumbnailUrl: string;
+  };
+  publishedAt: string;
 }

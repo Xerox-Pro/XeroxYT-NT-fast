@@ -5,12 +5,11 @@ import VideoCardSkeleton from './skeletons/VideoCardSkeleton';
 
 interface VideoGridProps {
   videos: Video[];
-  onSelectVideo: (videoId: string) => void;
   isLoading: boolean;
 }
 
-const VideoGrid: React.FC<VideoGridProps> = ({ videos, onSelectVideo, isLoading }) => {
-  if (isLoading) {
+const VideoGrid: React.FC<VideoGridProps> = ({ videos, isLoading }) => {
+  if (isLoading && videos.length === 0) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8">
         {Array.from({ length: 20 }).map((_, index) => (
@@ -20,14 +19,14 @@ const VideoGrid: React.FC<VideoGridProps> = ({ videos, onSelectVideo, isLoading 
     );
   }
 
-  if (!videos.length) {
+  if (!videos.length && !isLoading) {
     return <div className="text-center col-span-full">No videos found.</div>;
   }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8">
       {videos.map(video => (
-        <VideoCard key={video.id} video={video} onSelectVideo={onSelectVideo} />
+        <VideoCard key={video.id} video={video} />
       ))}
     </div>
   );

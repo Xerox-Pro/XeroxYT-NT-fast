@@ -1,0 +1,40 @@
+/* For Webkit-based browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 20px;
+}
+
+/* Show scrollbar thumb on hover over the body or any scrollable element */
+body:hover::-webkit-scrollbar-thumb,
+div:hover::-webkit-scrollbar-thumb {
+  background-color: #555; /* Dark theme scrollbar thumb */
+}
+
+html.light body:hover::-webkit-scrollbar-thumb,
+html.light div:hover::-webkit-scrollbar-thumb {
+  background-color: #aaa; /* Light theme scrollbar thumb */
+}
+
+/* Fade in/out effect for scrollbar */
+::-webkit-scrollbar-thumb {
+  transition: background-color 0.2s ease-in-out;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #555 transparent; /* thumb color track color */
+}
+
+html.light * {
+    scrollbar-color: #aaa transparent;
+}
