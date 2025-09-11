@@ -1,8 +1,8 @@
-
 export interface Video {
   id: string;
   thumbnailUrl: string;
   duration: string;
+  isoDuration: string;
   title: string;
   channelName: string;
   channelId: string;

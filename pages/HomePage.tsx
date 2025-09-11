@@ -1,50 +1,54 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import VideoGrid from '../components/VideoGrid';
-import { getRecommendedVideos, searchVideos } from '../utils/api';
+import ShortsShelf from '../components/ShortsShelf';
+import { getRecommendedVideos, searchVideos, getChannelVideos } from '../utils/api';
 import type { Video } from '../types';
-import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useApiKey } from '../contexts/ApiKeyContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
+
+const parseISODuration = (isoDuration: string): number => {
+    if (!isoDuration) return 0;
+    const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+    const matches = isoDuration.match(regex);
+    if (!matches) return 0;
+    const hours = parseInt(matches[1] || '0', 10);
+    const minutes = parseInt(matches[2] || '0', 10);
+    const seconds = parseInt(matches[3] || '0', 10);
+    return hours * 3600 + minutes * 60 + seconds;
+};
+
+const shuffleArray = <T,>(array: T[]): T[] => {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
 
 const HomePage: React.FC = () => {
     const { apiKey } = useApiKey();
     const { subscribedChannels } = useSubscription();
     const { searchHistory } = useSearchHistory();
     const [videos, setVideos] = useState<Video[]>([]);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const recommendationTerms = useMemo(() => {
-        const terms = new Set<string>();
-        subscribedChannels.forEach(c => terms.add(`"${c.name}"`));
-        searchHistory.slice(0, 5).forEach(h => terms.add(h)); // Use latest 5 search terms
-        return Array.from(terms);
-    }, [subscribedChannels, searchHistory]);
-
-    const shuffleArray = (array: any[]) => {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-    }
-
-    const loadVideos = useCallback(async () => {
+    const loadMixedFeed = useCallback(async () => {
         if (!apiKey) {
             setIsLoading(false);
+            setError("APIキーが設定されていません。");
             return;
         }
-        
+
         setIsLoading(true);
         setError(null);
         
         try {
-            // Create promises for all data sources
             const promises = [
-                getRecommendedVideos(apiKey).then(res => res.videos), // Popular videos
-                ...recommendationTerms.map(term => searchVideos(apiKey, term, '').then(res => res.videos))
+                getRecommendedVideos(apiKey).then(res => res.videos),
+                ...subscribedChannels.slice(0, 5).map(c => getChannelVideos(apiKey, c.id).then(res => res.videos.slice(0, 3))),
+                ...searchHistory.slice(0, 5).map(term => searchVideos(apiKey, term, '').then(res => res.videos.slice(0, 3)))
             ];
             
             const results = await Promise.allSettled(promises);
@@ -56,9 +60,7 @@ const HomePage: React.FC = () => {
                 }
             });
 
-            // De-duplicate videos based on ID, keeping the first occurrence
             const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.id, v])).values());
-            
             setVideos(shuffleArray(uniqueVideos));
 
         } catch (err: any) {
@@ -67,33 +69,42 @@ const HomePage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [apiKey, recommendationTerms]);
-    
-    useEffect(() => {
-        loadVideos();
-    }, [loadVideos]);
+    }, [apiKey, subscribedChannels, searchHistory]);
 
-    if (isLoading) {
-        return (
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8">
-                {Array.from({ length: 20 }).map((_, index) => (
-                    <VideoCardSkeleton key={index} />
-                ))}
-            </div>
-        );
-    }
+    useEffect(() => {
+        loadMixedFeed();
+    }, [loadMixedFeed]);
     
+    const { shorts, regularVideos } = useMemo(() => {
+        const shortsArr: Video[] = [];
+        const regularArr: Video[] = [];
+        videos.forEach(video => {
+            const durationInSeconds = parseISODuration(video.isoDuration);
+            if (durationInSeconds > 0 && durationInSeconds <= 60) {
+                shortsArr.push(video);
+            } else {
+                regularArr.push(video);
+            }
+        });
+        return { shorts: shortsArr, regularVideos: regularArr };
+    }, [videos]);
+
+
     if (error) {
         return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
     }
 
     return (
-        <>
-            <VideoGrid videos={videos} isLoading={isLoading} />
-            {!isLoading && videos.length > 0 && (
-                <div className="text-center text-yt-light-gray py-4">フィードの終端です。</div>
-            )}
-        </>
+        <div>
+            {(isLoading && shorts.length === 0) || shorts.length > 0 ? (
+                <>
+                    <ShortsShelf shorts={shorts} isLoading={isLoading && videos.length === 0} />
+                    <hr className="my-6 border-yt-spec-light-20 dark:border-yt-spec-20" />
+                </>
+            ) : null}
+            
+            <VideoGrid videos={regularVideos} isLoading={isLoading && videos.length === 0} />
+        </div>
     );
 };
 

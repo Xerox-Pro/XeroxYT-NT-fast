@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -14,6 +13,7 @@ const formatNumber = (numStr: string | number): string => {
 };
 
 const formatDuration = (duration: string): string => {
+  if (!duration) return "0:00";
   const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
   if (!match) return "0:00";
   
@@ -98,6 +98,7 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
     id: videoId,
     thumbnailUrl: snippet.thumbnails.high?.url || snippet.thumbnails.default.url,
     duration: item.contentDetails?.duration ? formatDuration(item.contentDetails.duration) : '',
+    isoDuration: item.contentDetails?.duration || 'PT0S',
     title: snippet.title,
     channelName: snippet.channelTitle,
     channelId: snippet.channelId,
@@ -210,6 +211,7 @@ export async function getVideoDetails(apiKey: string, videoId: string): Promise<
     channelId: videoData.snippet.channelId,
     thumbnailUrl: videoData.snippet.thumbnails.high.url,
     duration: formatDuration(videoData.contentDetails.duration),
+    isoDuration: videoData.contentDetails.duration,
     title: videoData.snippet.title,
     channelName: videoData.snippet.channelTitle,
     channelAvatarUrl: channel.avatarUrl,
@@ -267,6 +269,7 @@ export async function getChannelVideos(apiKey: string, channelId: string, pageTo
     const videoDetailsById = (detailsData.items || []).reduce((acc: any, item: any) => {
         acc[item.id] = {
             duration: item.contentDetails?.duration ? formatDuration(item.contentDetails.duration) : '',
+            isoDuration: item.contentDetails?.duration || 'PT0S',
             views: item.statistics?.viewCount ? `${formatNumber(item.statistics.viewCount)}回視聴` : '視聴回数不明',
         };
         return acc;
@@ -280,6 +283,7 @@ export async function getChannelVideos(apiKey: string, channelId: string, pageTo
         channelId: item.snippet.channelId,
         uploadedAt: formatTimeAgo(item.snippet.publishedAt),
         duration: videoDetailsById[item.id.videoId]?.duration || '',
+        isoDuration: videoDetailsById[item.id.videoId]?.isoDuration || 'PT0S',
         views: videoDetailsById[item.id.videoId]?.views || '視聴回数不明',
         channelAvatarUrl: '', 
     }));

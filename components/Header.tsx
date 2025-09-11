@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MenuIcon, YouTubeLogo, SearchIcon, BellIcon, SunIcon, MoonIcon, SettingsIcon } from './icons/Icons';
+import { MenuIcon, YouTubeLogo, SearchIcon, BellIcon, LightbulbIcon, MoonIcon, SettingsIcon } from './icons/Icons';
 import { useNotification } from '../contexts/NotificationContext';
 import { useApiKey } from '../contexts/ApiKeyContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
@@ -92,7 +91,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, theme, toggleTheme }) =>
             <SettingsIcon />
         </button>
         <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 active:scale-95 transform transition-transform duration-150" aria-label="テーマの切り替え">
-          {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+          {theme === 'light' ? <MoonIcon /> : <LightbulbIcon />}
         </button>
         <div className="relative" ref={notificationRef}>
             <button onClick={handleBellClick} className="p-2 rounded-full hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 active:scale-95 transform transition-transform duration-150 hidden sm:block" aria-label="通知">
