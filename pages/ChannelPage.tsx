@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { getChannelDetails, getChannelVideos } from '../utils/api';
 import type { ChannelDetails, Video } from '../types';
 import VideoGrid from '../components/VideoGrid';
-import VideoCardSkeleton from '../components/skeletons/VideoCardSkeleton';
+import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useApiKey } from '../contexts/ApiKeyContext';
 

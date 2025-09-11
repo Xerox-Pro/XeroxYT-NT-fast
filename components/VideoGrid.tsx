@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Video } from '../types';
 import VideoCard from './VideoCard';
-import VideoCardSkeleton from './skeletons/VideoCardSkeleton';
+import VideoCardSkeleton from './icons/VideoCardSkeleton';
 
 interface VideoGridProps {
   videos: Video[];

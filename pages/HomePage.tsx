@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import VideoGrid from '../components/VideoGrid';
 import { getRecommendedVideos } from '../utils/api';
 import type { Video } from '../types';
-import VideoCardSkeleton from '../components/skeletons/VideoCardSkeleton';
+import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useApiKey } from '../contexts/ApiKeyContext';
 
 const useInfiniteScroll = (callback: () => void) => {

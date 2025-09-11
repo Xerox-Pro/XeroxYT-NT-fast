@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { searchVideos } from '../utils/api';
 import type { Video } from '../types';
 import SearchVideoResultCard from '../components/SearchVideoResultCard';
-import VideoCardSkeleton from '../components/skeletons/VideoCardSkeleton'; // Using a generic skeleton for now
+import VideoCardSkeleton from '../components/icons/VideoCardSkeleton'; // Using a generic skeleton for now
 import { useApiKey } from '../contexts/ApiKeyContext';
 
 const useInfiniteScroll = (callback: () => void) => {
