@@ -132,10 +132,15 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
     return { videos: [], nextPageToken: undefined };
   }
 
-  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=1`;
+  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=200`;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
 
   try {
-    const response = await fetch(searchUrl);
+    const response = await fetch(searchUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
       throw new Error(`Xerox APIリクエスト失敗: ${response.status} ${response.statusText}`);
     }
@@ -158,8 +163,12 @@ export async function searchVideos(apiKey: string, query: string, pageToken = ''
     }
 
     return { videos: [], nextPageToken: undefined };
-  } catch (error) {
+  } catch (error: any) {
+    clearTimeout(timeoutId);
     console.error('Search API Error:', error);
+    if (error.name === 'AbortError') {
+        throw new Error('検索リクエストがタイムアウトしました。しばらくしてからもう一度お試しください。');
+    }
     if (error instanceof Error) {
         throw new Error(error.message);
     }
