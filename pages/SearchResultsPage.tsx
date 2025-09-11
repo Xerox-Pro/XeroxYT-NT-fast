@@ -34,7 +34,7 @@ const SearchResultsPage: React.FC = () => {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
     const performSearch = useCallback(async (searchQuery: string, token?: string) => {
-        if (!apiKey || !searchQuery || (token === undefined && videos.length > 0 && !token)) return;
+        if (!apiKey || !searchQuery) return;
         
         setError(null);
         token ? setIsLoadingMore(true) : setIsLoading(true);
@@ -49,7 +49,7 @@ const SearchResultsPage: React.FC = () => {
         } finally {
             token ? setIsLoadingMore(false) : setIsLoading(false);
         }
-    }, [apiKey, videos.length]);
+    }, [apiKey]);
 
     useEffect(() => {
         setVideos([]);
