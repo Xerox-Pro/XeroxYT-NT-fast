@@ -6,7 +6,8 @@ const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
 // --- HELPER FUNCTIONS ---
 
 const formatNumber = (numStr: string | number): string => {
-  const num = Number(numStr);
+  const num = Number(String(numStr).replace(/,/g, ''));
+  if (isNaN(num)) return String(numStr);
   if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
   if (num >= 10_000) return `${Math.floor(num / 10_000)}万`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}千`;
@@ -29,6 +30,9 @@ const formatDuration = (duration: string): string => {
 };
 
 export const formatTimeAgo = (dateStr: string): string => {
+  if (!dateStr.endsWith('Z')) { // Handle relative time strings from unofficial API
+      return dateStr;
+  }
   const date = new Date(dateStr);
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
@@ -126,45 +130,44 @@ export async function getRecommendedVideos(apiKey: string, pageToken = ''): Prom
 }
 
 
-export async function searchVideos(apiKey: string, query: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  // New API does not support pagination.
-  if (pageToken) {
-    return { videos: [], nextPageToken: undefined };
-  }
-
-  const searchUrl = `https://xeroxapi-mu.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=200`;
+export async function searchVideos(apiKey: string, query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
+  const endpoint = `https://xeroxapi-mu.vercel.app/api/search`;
+  const url = `${endpoint}?q=${encodeURIComponent(query)}`;
 
   try {
-    const response = await fetch(searchUrl, {
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
         'Accept': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Xerox APIリクエスト失敗: ${response.status} ${response.statusText}`);
+      throw new Error('検索サーバーへの接続に失敗しました。ネットワーク環境を確認するか、しばらくしてからもう一度お試しください。');
     }
+
     const data = await response.json();
 
-    if (!data.results || data.results.length === 0) {
+    if (!Array.isArray(data.videos) || data.videos.length === 0) {
       return { videos: [], nextPageToken: undefined };
     }
-
-    const videoIds: string[] = data.results.map((item: any) => item.id);
     
-    // Enrich with details from YouTube API to keep UI consistent
-    if (videoIds.length > 0) {
-        const videosWithDetails = await getVideosByIds(apiKey, videoIds);
-        const videoMap = new Map(videosWithDetails.map(v => [v.id, v]));
-        const orderedVideos = videoIds
-            .map(id => videoMap.get(id))
-            .filter((v): v is Video => !!v);
-        return { videos: orderedVideos, nextPageToken: undefined };
-    }
+    const videos: Video[] = data.videos.map((item: any): Video => ({
+      id: item.videoId,
+      thumbnailUrl: item.thumbnail || 'https://via.placeholder.com/480x270.png?text=No+Thumbnail',
+      duration: item.duration_raw || '',
+      isoDuration: '',
+      title: item.title,
+      channelName: item.channelName,
+      channelId: item.channelId,
+      channelAvatarUrl: item.channelThumbnail || '',
+      views: item.viewCount ? `${item.viewCount.replace(/,/g, '')}回視聴` : '視聴回数不明',
+      uploadedAt: item.publishedTime || '',
+    }));
 
-    return { videos: [], nextPageToken: undefined };
-  } catch (error: any) {
-    console.error('Search API Error:', error);
+    return { videos, nextPageToken: undefined };
+  } catch (error) {
+    console.error('非公式API検索エラー:', error);
     throw new Error('検索サーバーへの接続に失敗しました。ネットワーク環境を確認するか、しばらくしてからもう一度お試しください。');
   }
 }

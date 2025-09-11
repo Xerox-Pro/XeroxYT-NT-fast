@@ -74,7 +74,7 @@ const ChannelPage: React.FC = () => {
                     setVideosPageToken(vData.nextPageToken);
                     break;
                 case 'shorts':
-                    const sData = await searchVideos(apiKey, `#shorts`, pageToken);
+                    const sData = await searchVideos(apiKey, `#shorts`, pageToken, channelId);
                     setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
                     setShortsPageToken(sData.nextPageToken);
                     break;
