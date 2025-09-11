@@ -98,7 +98,7 @@ const VideoPlayerPage: React.FC = () => {
       <div className="flex-grow lg:w-2/3">
         <div className="w-full aspect-video bg-black rounded-xl mb-4 flex items-center justify-center overflow-hidden">
           <iframe
-            src={`https://www.youtube.com/embed/${videoId}`}
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
             title="YouTube video player"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -120,34 +120,41 @@ const VideoPlayerPage: React.FC = () => {
                 </div>
                 <button 
                   onClick={handleSubscription}
-                  className={`ml-6 font-semibold px-4 h-10 rounded-full text-sm hover:opacity-90 flex items-center transform transition-transform duration-150 active:scale-95 ${subscribed ? 'bg-yt-light dark:bg-yt-dark-gray text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
+                  className={`ml-6 font-semibold px-4 h-10 rounded-full text-sm hover:opacity-90 flex items-center transition-opacity ${subscribed ? 'bg-yt-light dark:bg-yt-dark-gray text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
                 >
                   {subscribed ? '登録済み' : 'チャンネル登録'}
                 </button>
             </div>
             <div className="flex items-center space-x-2 flex-wrap">
-                <div className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-10">
-                    <button className="flex items-center px-4 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 active:bg-yt-spec-light-20 dark:active:bg-yt-spec-20 rounded-l-full transform transition-transform duration-150 active:scale-95">
+                {/* Like/Dislike Buttons */}
+                <div className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-10 overflow-hidden">
+                    <button className="flex items-center pl-4 pr-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
                         <LikeIcon />
                         <span className="ml-2 text-sm font-semibold">{likes}</span>
                     </button>
-                    <div className="w-px h-6 bg-yt-spec-light-20 dark:bg-yt-spec-20"></div>
-                    <button className="flex items-center px-4 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 active:bg-yt-spec-light-20 dark:active:bg-yt-spec-20 rounded-r-full transform transition-transform duration-150 active:scale-95">
+                    <div className="w-px h-full bg-yt-spec-light-20 dark:bg-yt-spec-20 my-2"></div>
+                    <button className="flex items-center px-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
                         <DislikeIcon />
                     </button>
                 </div>
-                <button className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 active:bg-yt-spec-light-20 dark:active:bg-yt-spec-20 text-sm font-semibold transform transition-transform duration-150 active:scale-95">
+
+                {/* Share Button */}
+                <button className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors text-sm font-semibold">
                     <ShareIcon />
                     <span className="ml-2">共有</span>
                 </button>
+
+                {/* Save Button */}
                 <button 
                   onClick={() => setIsPlaylistModalOpen(true)}
-                  className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 active:bg-yt-spec-light-20 dark:active:bg-yt-spec-20 text-sm font-semibold transform transition-transform duration-150 active:scale-95"
+                  className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors text-sm font-semibold"
                 >
                     <SaveIcon/>
                     <span className="ml-2">保存</span>
                 </button>
-                <button className="flex items-center justify-center h-10 w-10 bg-yt-light dark:bg-yt-dark-gray rounded-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 active:bg-yt-spec-light-20 dark:active:bg-yt-spec-20 transform transition-transform duration-150 active:scale-95">
+
+                {/* More Button */}
+                <button className="flex items-center justify-center h-10 w-10 bg-yt-light dark:bg-yt-dark-gray rounded-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
                     <MoreIconHorizontal />
                 </button>
             </div>

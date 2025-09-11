@@ -7,6 +7,7 @@ import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { PlaylistProvider } from './contexts/PlaylistContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ApiKeyProvider } from './contexts/ApiKeyContext';
+import { SearchHistoryProvider } from './contexts/SearchHistoryContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -21,7 +22,9 @@ root.render(
         <SubscriptionProvider>
           <PlaylistProvider>
             <NotificationProvider>
-              <App />
+              <SearchHistoryProvider>
+                <App />
+              </SearchHistoryProvider>
             </NotificationProvider>
           </PlaylistProvider>
         </SubscriptionProvider>

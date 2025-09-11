@@ -9,6 +9,8 @@ import SearchResultsPage from './pages/SearchResultsPage';
 import ChannelPage from './pages/ChannelPage';
 import YouPage from './pages/YouPage';
 import PlaylistPage from './pages/PlaylistPage';
+import ShortsPage from './pages/ShortsPage';
+import SubscriptionsPage from './pages/SubscriptionsPage';
 import { useTheme } from './hooks/useTheme';
 import { useApiKey } from './contexts/ApiKeyContext';
 import ApiKeyModal from './components/ApiKeyModal';
@@ -29,7 +31,9 @@ const App: React.FC = () => {
     setIsSidebarOpen(prev => !prev);
   }, []);
 
-  const mainContentMargin = isSidebarOpen ? 'ml-56' : 'ml-[72px]';
+  const isShortsPage = location.pathname === '/shorts';
+  const mainContentMargin = isSidebarOpen && !isShortsPage ? 'ml-56' : !isShortsPage ? 'ml-[72px]' : '';
+  const mainContentPadding = isShortsPage ? '' : 'p-6';
 
   return (
     <div className="min-h-screen bg-yt-white dark:bg-yt-black">
@@ -40,8 +44,8 @@ const App: React.FC = () => {
         toggleTheme={toggleTheme}
       />
       <div className="flex">
-        <Sidebar isOpen={isSidebarOpen} />
-        <main className={`flex-1 p-6 mt-14 ${mainContentMargin} transition-all duration-300`}>
+        {!isShortsPage && <Sidebar isOpen={isSidebarOpen} />}
+        <main className={`flex-1 mt-14 ${mainContentMargin} ${mainContentPadding} transition-all duration-300`}>
           {apiKey ? (
             <Routes>
               <Route path="/" element={<HomePage />} />
@@ -50,6 +54,8 @@ const App: React.FC = () => {
               <Route path="/channel/:channelId" element={<ChannelPage />} />
               <Route path="/you" element={<YouPage />} />
               <Route path="/playlist/:playlistId" element={<PlaylistPage />} />
+              <Route path="/shorts" element={<ShortsPage />} />
+              <Route path="/subscriptions" element={<SubscriptionsPage />} />
             </Routes>
           ) : (
             <div className="flex flex-col items-center justify-center h-[calc(100vh-100px)]">

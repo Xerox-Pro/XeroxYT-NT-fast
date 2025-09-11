@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { MenuIcon, YouTubeLogo, SearchIcon, BellIcon, SunIcon, MoonIcon, SettingsIcon } from './icons/Icons';
 import { useNotification } from '../contexts/NotificationContext';
 import { useApiKey } from '../contexts/ApiKeyContext';
+import { useSearchHistory } from '../contexts/SearchHistoryContext';
 import NotificationDropdown from './NotificationDropdown';
 
 interface HeaderProps {
@@ -17,12 +18,14 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, theme, toggleTheme }) =>
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const { notifications, unreadCount, markAsRead } = useNotification();
   const { openModal } = useApiKey();
+  const { addSearchTerm } = useSearchHistory();
   const navigate = useNavigate();
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      addSearchTerm(searchQuery.trim());
       navigate(`/results?search_query=${encodeURIComponent(searchQuery.trim())}`);
     }
   };

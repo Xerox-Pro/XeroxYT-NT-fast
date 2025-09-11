@@ -1,10 +1,12 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import VideoGrid from '../components/VideoGrid';
-import { getRecommendedVideos } from '../utils/api';
+import { getRecommendedVideos, searchVideos } from '../utils/api';
 import type { Video } from '../types';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useApiKey } from '../contexts/ApiKeyContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { useSearchHistory } from '../contexts/SearchHistoryContext';
 
 const useInfiniteScroll = (callback: () => void) => {
     const observer = useRef<IntersectionObserver | null>(null);
@@ -23,20 +25,38 @@ const useInfiniteScroll = (callback: () => void) => {
 
 const HomePage: React.FC = () => {
     const { apiKey } = useApiKey();
+    const { subscribedChannels } = useSubscription();
+    const { searchHistory } = useSearchHistory();
     const [videos, setVideos] = useState<Video[]>([]);
     const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
+    const recommendationQuery = useMemo(() => {
+        const terms = new Set<string>();
+        subscribedChannels.forEach(c => terms.add(`"${c.name}"`));
+        searchHistory.slice(0, 10).forEach(h => terms.add(h));
+        
+        if (terms.size === 0) return null;
+        return Array.from(terms).join(' | ');
+    }, [subscribedChannels, searchHistory]);
+
     const loadVideos = useCallback(async (token?: string) => {
-        if (!apiKey || (token === undefined && videos.length > 0)) return;
+        if (!apiKey) return;
         
         setError(null);
         token ? setIsLoadingMore(true) : setIsLoading(true);
         
         try {
-            const { videos: newVideos, nextPageToken: nextToken } = await getRecommendedVideos(apiKey, token);
+            let result;
+            if (recommendationQuery) {
+                result = await searchVideos(apiKey, recommendationQuery, token);
+            } else {
+                result = await getRecommendedVideos(apiKey, token);
+            }
+            const { videos: newVideos, nextPageToken: nextToken } = result;
+
             setVideos(prev => token ? [...prev, ...newVideos] : newVideos);
             setNextPageToken(nextToken);
         } catch (err: any) {
@@ -45,15 +65,18 @@ const HomePage: React.FC = () => {
         } finally {
             token ? setIsLoadingMore(false) : setIsLoading(false);
         }
-    }, [apiKey, videos.length]);
+    }, [apiKey, recommendationQuery]);
     
     useEffect(() => {
         if (apiKey) {
+            setVideos([]);
+            setNextPageToken(undefined);
             loadVideos();
         } else {
             setIsLoading(false);
         }
-    }, [apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [apiKey, recommendationQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
     const handleLoadMore = useCallback(() => {
         if (!isLoadingMore && nextPageToken) {
@@ -79,6 +102,12 @@ const HomePage: React.FC = () => {
 
     return (
         <>
+            {recommendationQuery && videos.length > 0 && (
+                <div className="mb-4">
+                    <h2 className="text-xl font-bold">あなたへのおすすめ</h2>
+                    <p className="text-sm text-yt-light-gray">登録チャンネルや検索履歴に基づいています。</p>
+                </div>
+            )}
             <VideoGrid videos={videos} isLoading={isLoading && videos.length === 0} />
             <div ref={lastElementRef} className="h-10">
                 {isLoadingMore && (
