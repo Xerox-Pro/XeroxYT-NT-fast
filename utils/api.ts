@@ -117,6 +117,40 @@ const mapInvidiousDetailsToVideo = (item: any): Video => {
     }
 }
 
+// --- NEW SEARCH HELPERS ---
+const parseDurationToSeconds = (duration: string): number => {
+    if (!duration || duration === 'N/A') return 0;
+    const parts = duration.split(':').map(Number);
+    let seconds = 0;
+    if (parts.length === 3) { // HH:MM:SS
+        seconds += parts[0] * 3600;
+        seconds += parts[1] * 60;
+        seconds += parts[2];
+    } else if (parts.length === 2) { // MM:SS
+        seconds += parts[0] * 60;
+        seconds += parts[1];
+    } else if (parts.length === 1) { // SS
+        seconds += parts[0];
+    }
+    return seconds;
+};
+
+const mapXeroxSearchResultToVideo = (item: any): Video => {
+    const durationInSeconds = parseDurationToSeconds(item.duration);
+    return {
+        id: item.id,
+        thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+        duration: item.duration || '0:00',
+        isoDuration: `PT${durationInSeconds}S`,
+        title: item.title,
+        channelName: item.channel,
+        channelId: item.channelId,
+        channelAvatarUrl: item.channelIcon,
+        views: '不明', // 新しいAPIでは提供されない
+        uploadedAt: '', // 新しいAPIでは提供されない
+    };
+};
+
 
 // --- EXPORTED API FUNCTIONS ---
 
@@ -128,19 +162,33 @@ export async function getRecommendedVideos(): Promise<{videos: Video[], nextPage
 }
 
 export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const url = `/search?q=${encodeURIComponent(query)}`;
-  const data = await apiFetch(url);
-  if (!Array.isArray(data)) {
+  const url = `https://xeroxapp060.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=100`;
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+    }
+    const data = await response.json();
+
+    if (!data.results || !Array.isArray(data.results)) {
       console.error("Unexpected API response:", data);
       throw new Error("Invalid data format from search API.");
+    }
+
+    let videos: Video[] = data.results.map(mapXeroxSearchResultToVideo);
+    
+    if (channelId) {
+        videos = videos.filter(v => v.channelId === channelId);
+    }
+    
+    // The new API doesn't support pagination, so nextPageToken is undefined
+    return { videos, nextPageToken: undefined };
+  } catch (error) {
+      console.error(`Failed to fetch search results for query: ${query}`, error);
+      // Re-throw the error so the UI can display it
+      throw new Error('検索結果の取得に失敗しました。時間をおいて再度お試しください。');
   }
-  let videos = data.map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
-  
-  if (channelId) {
-      videos = videos.filter(v => v.channelId === channelId);
-  }
-  
-  return { videos, nextPageToken: undefined }; // Invidious search doesn't support pagination
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
