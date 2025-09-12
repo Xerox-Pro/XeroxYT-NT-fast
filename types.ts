@@ -1,3 +1,4 @@
+
 export interface Video {
   id: string;
   thumbnailUrl: string;
@@ -9,6 +10,7 @@ export interface Video {
   channelAvatarUrl: string;
   views: string;
   uploadedAt: string;
+  descriptionSnippet?: string;
 }
 
 export interface Channel {
@@ -20,6 +22,9 @@ export interface Channel {
 
 export interface ChannelDetails extends Channel {
     bannerUrl?: string;
+    description?: string;
+    videoCount?: number;
+    handle?: string;
 }
 
 export interface Comment {

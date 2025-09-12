@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos } from '../utils/api';
@@ -95,7 +94,8 @@ const ChannelPage: React.FC = () => {
             setVideosPageToken(undefined); setShortsPageToken(undefined); setPlaylistsPageToken(undefined);
             fetchTabData(activeTab);
         }
-    }, [activeTab, channelId, fetchTabData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, channelId]);
 
 
     const handleLoadMore = () => {
@@ -135,7 +135,16 @@ const ChannelPage: React.FC = () => {
                 <img src={channelDetails.avatarUrl} alt={channelDetails.name} className="w-20 h-20 sm:w-32 sm:h-32 rounded-full mr-0 sm:mr-6 mb-4 sm:mb-0" />
                 <div className="flex-1 text-center sm:text-left">
                     <h1 className="text-2xl font-bold">{channelDetails.name}</h1>
-                    <p className="text-sm text-yt-light-gray mt-1">{channelDetails.subscriberCount}</p>
+                    <div className="text-sm text-yt-light-gray mt-1 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-x-2">
+                        {channelDetails.handle && <span>@{channelDetails.handle}</span>}
+                        {channelDetails.subscriberCount && <span>チャンネル登録者数 {channelDetails.subscriberCount}人</span>}
+                        {channelDetails.videoCount != null && <span>動画 {channelDetails.videoCount}本</span>}
+                    </div>
+                    {channelDetails.description && (
+                        <p className="text-sm text-yt-light-gray mt-2 line-clamp-2">
+                            {channelDetails.description.split('\n')[0]}
+                        </p>
+                    )}
                 </div>
                  <button 
                   onClick={handleSubscription}

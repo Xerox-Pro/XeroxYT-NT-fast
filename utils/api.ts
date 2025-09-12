@@ -1,3 +1,4 @@
+
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -166,6 +167,7 @@ const mapXeroxSearchResultToVideo = (item: any): Video | null => {
         channelAvatarUrl: item.author?.thumbnails?.[0]?.url || '',
         views: item.view_count?.text || '視聴回数不明',
         uploadedAt: item.published?.text || '',
+        descriptionSnippet: item.description_snippet?.text || '',
     };
 };
 
@@ -266,8 +268,11 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
         id: data.authorId,
         name: data.author,
         avatarUrl: data.authorThumbnails?.find((t:any) => t.width > 150)?.url || data.authorThumbnails?.[0]?.url,
-        subscriberCount: `チャンネル登録者数 ${formatNumber(data.subCount)}`,
+        subscriberCount: formatNumber(data.subCount),
         bannerUrl: data.authorBanners?.find((b: any) => b.width > 1000)?.url,
+        description: data.description,
+        videoCount: data.videoCount,
+        handle: data.author,
     };
 }
 
