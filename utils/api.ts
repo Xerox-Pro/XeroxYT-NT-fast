@@ -1,7 +1,6 @@
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
-// サーバーリストを更新し、より多くの安定したインスタンスを含めました
 const INSTANCES = [
   'https://vid.puffyan.us',
   'https://invidious.kavin.rocks',
@@ -12,8 +11,41 @@ const INSTANCES = [
   'https://invidious.slipfox.xyz',
 ];
 
+// --- PROXIED FETCHER ---
+// The user's example app uses a proxy to avoid CORS/network issues.
+// This function replicates that pattern for all API calls.
+const proxiedFetch = async (targetUrl: string) => {
+    // We assume a proxy is available at /api/proxy as in the example.
+    const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
+
+    try {
+        // Use AbortSignal.timeout for a cleaner timeout implementation
+        const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
+             const text = await response.text();
+             throw new Error(`Invalid JSON response from proxy. Status: ${response.status}. Body: ${text}`);
+        }
+        
+        if (!response.ok) {
+            // Use error message from proxied response if available
+            throw new Error(result.error || `Request failed: ${response.status}`);
+        }
+        
+        return result;
+    } catch (error) {
+        // Re-throw the error to be handled by the calling function.
+        // This allows for retry logic in apiFetch.
+        throw error;
+    }
+};
+
+
 // --- CENTRALIZED API FETCHER WITH FALLBACKS ---
-// 堅牢性を高めるためにAPI取得ロジックを改善しました
+// API取得ロジックをプロキシ経由に変更
 const apiFetch = async (endpoint: string) => {
   // 毎回リストをシャッフルして、特定のエンドポイントへの負荷を分散させます
   const shuffledInstances = [...INSTANCES].sort(() => Math.random() - 0.5);
@@ -22,16 +54,10 @@ const apiFetch = async (endpoint: string) => {
     const fullUrl = `${instanceUrl}/api/v1${endpoint}`;
     
     try {
-      // 応答しないサーバーでの待ち時間を短縮するためにタイムアウトを5秒に設定
-      const response = await fetch(fullUrl, { signal: AbortSignal.timeout(5000) });
-      if (!response.ok) {
-        console.warn(`Instance ${instanceUrl} failed with status ${response.status}. Trying next...`);
-        throw new Error(`Server error: ${response.status}`);
-      }
-      // 成功！JSONを返却
-      return await response.json();
+      // Use the new proxied fetch function
+      return await proxiedFetch(fullUrl);
     } catch (error) {
-      console.error(`Fetch from ${instanceUrl} failed. Retrying with next instance.`, error);
+      console.error(`Fetch from ${instanceUrl} via proxy failed. Retrying with next instance.`, error);
       // ループは自動的に次のインスタンスで続行します
     }
   }
@@ -165,11 +191,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
   const url = `https://xeroxapp060.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=100`;
   
   try {
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-    }
-    const data = await response.json();
+    const data = await proxiedFetch(url);
 
     if (!data.results || !Array.isArray(data.results)) {
       console.error("Unexpected API response:", data);
