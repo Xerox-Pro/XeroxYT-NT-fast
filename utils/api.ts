@@ -236,8 +236,7 @@ export async function getRecommendedVideos(): Promise<{videos: Video[]}> {
   
   const videos = data.videos
       .map(mapFVideoItemToVideo)
-      .filter((v): v is Video => v !== null)
-      .slice(0, 10); // Take only 10 as requested
+      .filter((v): v is Video => v !== null);
       
   return { videos };
 }
