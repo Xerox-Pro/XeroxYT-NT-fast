@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import type { Notification } from '../types';
 import { formatTimeAgo } from '../utils/api';
 
@@ -12,7 +13,9 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClo
   const { channel, video, publishedAt } = notification;
 
   return (
-    <div
+    <Link
+      to={`/watch/${video.id}`}
+      onClick={onClose}
       className="flex items-start px-4 py-3 hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 border-b border-yt-spec-light-20 dark:border-yt-spec-20 last:border-b-0"
     >
       <div className="flex-shrink-0 mt-1">
@@ -28,7 +31,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClo
       <div className="flex-shrink-0 ml-4">
         <img src={video.thumbnailUrl} alt={video.title} className="w-28 aspect-video rounded-md" />
       </div>
-    </div>
+    </Link>
   );
 };
 

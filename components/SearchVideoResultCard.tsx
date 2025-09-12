@@ -9,7 +9,7 @@ interface SearchVideoResultCardProps {
 
 const SearchVideoResultCard: React.FC<SearchVideoResultCardProps> = ({ video }) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-4 group">
+    <Link to={`/watch/${video.id}`} className="flex flex-col sm:flex-row gap-4 group">
       {/* Thumbnail */}
       <div className="relative flex-shrink-0 sm:w-64 md:w-80 rounded-xl overflow-hidden">
         <img src={video.thumbnailUrl} alt={video.title} className="w-full h-auto aspect-video object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -48,7 +48,7 @@ const SearchVideoResultCard: React.FC<SearchVideoResultCardProps> = ({ video }) 
             </p>
         )}
       </div>
-    </div>
+    </Link>
   );
 };
 

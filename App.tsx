@@ -11,6 +11,7 @@ import PlaylistPage from './pages/PlaylistPage';
 import ShortsPage from './pages/ShortsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
 import HistoryPage from './pages/HistoryPage';
+import VideoPlayerPage from './pages/VideoPlayerPage';
 import { useTheme } from './hooks/useTheme';
 
 const App: React.FC = () => {
@@ -22,9 +23,18 @@ const App: React.FC = () => {
     setIsSidebarOpen(prev => !prev);
   }, []);
 
+  const isPlayerPage = location.pathname.startsWith('/watch');
   const isShortsPage = location.pathname === '/shorts';
-  const mainContentMargin = isSidebarOpen && !isShortsPage ? 'ml-56' : !isShortsPage ? 'ml-[72px]' : '';
-  const mainContentPadding = isShortsPage ? '' : 'p-6';
+  
+  const getMargin = () => {
+    if (isPlayerPage || isShortsPage) return '';
+    if (isSidebarOpen) return 'ml-56';
+    return 'ml-[72px]';
+  };
+
+  const mainContentMargin = getMargin();
+  const mainContentPadding = isShortsPage ? '' : isPlayerPage ? 'p-6 lg:px-24' : 'p-6';
+  const showSidebar = !isShortsPage && !isPlayerPage;
 
   return (
     <div className="min-h-screen bg-yt-white dark:bg-yt-black">
@@ -34,10 +44,11 @@ const App: React.FC = () => {
         toggleTheme={toggleTheme}
       />
       <div className="flex">
-        {!isShortsPage && <Sidebar isOpen={isSidebarOpen} />}
+        {showSidebar && <Sidebar isOpen={isSidebarOpen} />}
         <main className={`flex-1 mt-14 ${mainContentMargin} ${mainContentPadding} transition-all duration-300`}>
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/watch/:videoId" element={<VideoPlayerPage />} />
             <Route path="/results" element={<SearchResultsPage />} />
             <Route path="/channel/:channelId" element={<ChannelPage />} />
             <Route path="/you" element={<YouPage />} />

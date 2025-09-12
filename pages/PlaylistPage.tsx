@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePlaylist } from '../contexts/PlaylistContext';
 import { getVideosByIds } from '../utils/api';
 import type { Video } from '../types';
@@ -60,9 +60,9 @@ const PlaylistPage: React.FC = () => {
         <div className="flex flex-col md:flex-row gap-8">
             <div className="w-full md:w-1/3 md:max-w-sm flex-shrink-0 bg-yt-dark-gray p-4 rounded-lg self-start">
                 {videos.length > 0 ? (
-                     <div>
+                     <Link to={`/watch/${videos[0].id}`}>
                         <img src={videos[0].thumbnailUrl} alt={playlist.name} className="w-full aspect-video rounded-lg mb-4" />
-                    </div>
+                    </Link>
                 ) : (
                     <div className="w-full aspect-video bg-yt-gray rounded-lg mb-4"></div>
                 )}
@@ -102,13 +102,13 @@ const PlaylistPage: React.FC = () => {
                         {videos.map((video, index) => (
                             <div key={video.id} className="flex items-center group">
                                 <span className="text-yt-light-gray mr-4">{index + 1}</span>
-                                <div className="flex-1 flex gap-4">
+                                <Link to={`/watch/${video.id}`} className="flex-1 flex gap-4">
                                     <img src={video.thumbnailUrl} alt={video.title} className="w-32 aspect-video rounded-lg"/>
                                     <div>
                                         <h3 className="font-semibold line-clamp-2">{video.title}</h3>
                                         <p className="text-sm text-yt-light-gray">{video.channelName}</p>
                                     </div>
-                                </div>
+                                </Link>
                                 <button onClick={() => playlistId && removeVideoFromPlaylist(playlistId, video.id)} className="p-2 rounded-full hover:bg-yt-spec-20 opacity-0 group-hover:opacity-100">
                                     <TrashIcon />
                                 </button>
