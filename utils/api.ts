@@ -15,7 +15,7 @@ const INSTANCES = [
 const proxiedFetch = async (targetUrl: string) => {
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
     try {
-        const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(180000) });
+        const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(30000) });
         let result;
         try {
             result = await response.json();
@@ -293,7 +293,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 }
 
 export async function getVideoComments(videoId: string): Promise<Comment[]> {
-    const url = `https://xeroxapp60.vercel.app/api/comments?id=${videoId}`;
+    const url = `https://xeroxapp060.vercel.app/api/comments?id=${videoId}`;
     try {
         const data = await proxiedFetch(url);
         if (!data.comments || !Array.isArray(data.comments)) {
