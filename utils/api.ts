@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist, ChannelBadge, SuperTitleLink } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -217,11 +216,15 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-    const url = `https://siawaseok.duckdns.org/api/video/${videoId}`;
+    const url = `https://xeroxapp060.vercel.app/api/video?id=${videoId}`;
     const data = await proxiedFetch(url);
 
-    if (data.playability_status?.status === 'LOGIN_REQUIRED') {
-        throw new Error(data.playability_status.reason || 'この動画は利用できません。');
+    if (data.playability_status?.status && data.playability_status.status !== 'OK') {
+        const reason = data.playability_status?.reason || data.playability_status?.error_screen?.reason?.text;
+        if (reason) {
+            throw new Error(reason);
+        }
+        throw new Error('この動画は現在利用できません。');
     }
     
     if (!data.primary_info || !data.secondary_info || !data.basic_info) {
@@ -239,8 +242,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     })).filter((b: any) => b.type && b.tooltip);
 
     const channel: Channel = {
-        id: owner?.id || basic.channel?.id || '', 
-        name: owner?.name || basic.channel?.name ||'不明なチャンネル',
+        id: owner?.id || '', 
+        name: owner?.name || '不明なチャンネル',
         avatarUrl: owner?.thumbnails?.find((t: any) => t.width > 80)?.url || owner?.thumbnails?.[0]?.url || '',
         subscriberCount: secondary.owner?.subscriber_count?.text || '',
         badges,
@@ -273,13 +276,16 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
             };
         }).filter((v): v is Video => v !== null);
     
+    const durationSeconds = basic?.duration ?? 0;
+    
     return {
         id: videoId, thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        duration: formatDuration(basic.duration), isoDuration: `PT${basic.duration}S`,
-        title: primary.title?.text || basic.title || '無題の動画',
+        duration: formatDuration(durationSeconds), isoDuration: `PT${durationSeconds}S`,
+        title: primary.title?.text || '無題の動画',
         channelName: channel.name, channelId: channel.id,
-        channelAvatarUrl: channel.avatarUrl, views: primary.view_count?.text || formatNumber(basic.view_count || 0),
-        uploadedAt: primary.relative_date?.text || '', description: parseDescriptionRuns(secondary.description?.runs) || basic.short_description || '',
+        channelAvatarUrl: channel.avatarUrl, views: primary.view_count?.text || '視聴回数不明',
+        uploadedAt: primary.relative_date?.text || primary.published?.text || '', 
+        description: parseDescriptionRuns(secondary.description?.runs) || '',
         likes: formatNumber(basic.like_count || 0), dislikes: '0',
         channel: channel, relatedVideos: relatedVideos, comments: [], // Comments are fetched separately
         superTitleLinks: superTitleLinks,

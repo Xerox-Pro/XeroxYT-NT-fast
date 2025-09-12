@@ -50,6 +50,8 @@ const VideoPlayerPage: React.FC = () => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [videoDetailsError, setVideoDetailsError] = useState<string | null>(null);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
 
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
   const { addVideoToHistory } = useHistory();
@@ -75,44 +77,39 @@ const VideoPlayerPage: React.FC = () => {
       setVideoDetails(null);
       setComments([]);
       setEmbedKey(null);
+      setVideoDetailsError(null);
+      setCommentsError(null);
 
-      // Start all requests in parallel
       const keyPromise = getEmbedKey();
       const detailsPromise = getVideoDetails(videoId);
       const commentsPromise = getVideoComments(videoId);
 
-      // Handle comments loading independently
       commentsPromise
         .then(setComments)
         .catch(err => {
             console.error("Failed to fetch comments", err);
-            // Comments will be an empty array
+            setCommentsError("コメントの読み込みに失敗しました。");
         })
         .finally(() => {
             setIsCommentsLoading(false);
         });
 
-      // Handle main content loading (player + details)
       try {
-        // We need the key to proceed, it's critical.
         const key = await keyPromise;
         setEmbedKey(key);
 
-        // Details are not critical, if they fail we still show the player.
         try {
             const details = await detailsPromise;
             setVideoDetails(details);
             if (details) addVideoToHistory(details);
-        } catch (err) {
+        } catch (err: any) {
             console.error("Failed to fetch video details:", err);
-            // videoDetails will be null, UI handles it.
+            setVideoDetailsError(err.message || "動画情報の取得に失敗しました。");
         }
 
       } catch (err: any) {
-        // This catch is for getEmbedKey failure
         setError(err.message || 'プレーヤーの読み込みに失敗しました。');
       } finally {
-        // Once key and details have been attempted, stop the main loading skeleton.
         setIsLoading(false);
       }
     };
@@ -242,20 +239,37 @@ const VideoPlayerPage: React.FC = () => {
                     </div>
                 </div>
             </>
+        ) : videoDetailsError ? (
+            <div className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 p-3 rounded-xl mt-4">
+                <p className="font-semibold text-sm">動画情報の取得に失敗しました</p>
+                <p className="text-sm mt-1">{videoDetailsError}</p>
+            </div>
         ) : (
-             <div className="bg-yt-light dark:bg-yt-dark-gray p-3 rounded-xl mt-4">
-                <p className="font-semibold text-sm">動画情報の取得に失敗しました。</p>
+            <div className="bg-yt-light dark:bg-yt-dark-gray p-3 rounded-xl mt-4">
+                <p className="font-semibold text-sm">動画情報を読み込めませんでした。</p>
                 <p className="text-sm mt-2">この動画は視聴できますが、タイトルや説明などの詳細を表示できません。</p>
             </div>
         )}
         
         <div className="mt-6">
-            <h2 className="text-xl font-bold mb-4">{isCommentsLoading ? 'コメントを読み込み中...' : `${comments.length}件のコメント`}</h2>
-            <div className="space-y-4">
-                {comments.map(comment => (
-                    <Comment key={comment.id} comment={comment} />
-                ))}
-            </div>
+            <h2 className="text-xl font-bold mb-4">
+                {isCommentsLoading 
+                    ? 'コメントを読み込み中...' 
+                    : commentsError
+                    ? 'コメント'
+                    : `${comments.length}件のコメント`}
+            </h2>
+            {commentsError ? (
+                <div className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 p-3 rounded-lg">
+                    {commentsError}
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {comments.map(comment => (
+                        <Comment key={comment.id} comment={comment} />
+                    ))}
+                </div>
+            )}
         </div>
 
       </div>
