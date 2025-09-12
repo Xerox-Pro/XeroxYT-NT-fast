@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MenuIcon, YouTubeLogo, SearchIcon, BellIcon, LightbulbIcon, MoonIcon, SettingsIcon } from './icons/Icons';
+import { MenuIcon, YouTubeLogo, SearchIcon, BellIcon, LightbulbIcon, MoonIcon } from './icons/Icons';
 import { useNotification } from '../contexts/NotificationContext';
-import { useApiKey } from '../contexts/ApiKeyContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
 import NotificationDropdown from './NotificationDropdown';
 
@@ -16,7 +16,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, theme, toggleTheme }) =>
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const { notifications, unreadCount, markAsRead } = useNotification();
-  const { openModal } = useApiKey();
   const { addSearchTerm } = useSearchHistory();
   const navigate = useNavigate();
   const notificationRef = useRef<HTMLDivElement>(null);
@@ -87,9 +86,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, theme, toggleTheme }) =>
 
       {/* Right Section */}
       <div className="flex items-center space-x-2">
-        <button onClick={openModal} className="p-2 rounded-full hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 active:scale-95 transform transition-transform duration-150" aria-label="APIキー設定">
-            <SettingsIcon />
-        </button>
         <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 active:scale-95 transform transition-transform duration-150" aria-label="テーマの切り替え">
           {theme === 'light' ? <MoonIcon /> : <LightbulbIcon />}
         </button>

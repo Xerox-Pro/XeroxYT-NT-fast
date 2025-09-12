@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos } from '../utils/api';
@@ -5,7 +6,6 @@ import type { ChannelDetails, Video, ApiPlaylist } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { useApiKey } from '../contexts/ApiKeyContext';
 import { PlaylistIcon } from '../components/icons/Icons';
 
 type Tab = 'home' | 'videos' | 'shorts' | 'playlists';
@@ -26,7 +26,6 @@ const useInfiniteScroll = (callback: () => void, hasMore: boolean) => {
 
 const ChannelPage: React.FC = () => {
     const { channelId } = useParams<{ channelId: string }>();
-    const { apiKey } = useApiKey();
     const [channelDetails, setChannelDetails] = useState<ChannelDetails | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -46,11 +45,11 @@ const ChannelPage: React.FC = () => {
 
     useEffect(() => {
         const loadInitialDetails = async () => {
-            if (!channelId || !apiKey) return;
+            if (!channelId) return;
             setIsLoading(true);
             setError(null);
             try {
-                const details = await getChannelDetails(apiKey, channelId);
+                const details = await getChannelDetails(channelId);
                 setChannelDetails(details);
             } catch (err: any) {
                 setError(err.message || 'チャンネルデータの読み込みに失敗しました。');
@@ -59,16 +58,16 @@ const ChannelPage: React.FC = () => {
             }
         };
         loadInitialDetails();
-    }, [channelId, apiKey]);
+    }, [channelId]);
     
     const fetchTabData = useCallback(async (tab: Tab, pageToken?: string) => {
-        if (!channelId || !apiKey || isTabLoading) return;
+        if (!channelId || isTabLoading) return;
         setIsTabLoading(true);
 
         try {
             switch (tab) {
                 case 'videos':
-                    const vData = await getChannelVideos(apiKey, channelId, pageToken);
+                    const vData = await getChannelVideos(channelId, pageToken);
                     setVideos(prev => pageToken ? [...prev, ...vData.videos] : vData.videos);
                     setVideosPageToken(vData.nextPageToken);
                     break;
@@ -78,7 +77,7 @@ const ChannelPage: React.FC = () => {
                     setShortsPageToken(sData.nextPageToken);
                     break;
                 case 'playlists':
-                    const pData = await getChannelPlaylists(apiKey, channelId, pageToken);
+                    const pData = await getChannelPlaylists(channelId, pageToken);
                     setPlaylists(prev => pageToken ? [...prev, ...pData.playlists] : pData.playlists);
                     setPlaylistsPageToken(pData.nextPageToken);
                     break;
@@ -88,15 +87,15 @@ const ChannelPage: React.FC = () => {
         } finally {
             setIsTabLoading(false);
         }
-    }, [apiKey, channelId, isTabLoading]);
+    }, [channelId, isTabLoading]);
     
     useEffect(() => {
-        if(channelId && apiKey) {
+        if(channelId) {
             setVideos([]); setShorts([]); setPlaylists([]);
             setVideosPageToken(undefined); setShortsPageToken(undefined); setPlaylistsPageToken(undefined);
             fetchTabData(activeTab);
         }
-    }, [activeTab, channelId, apiKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [activeTab, channelId, fetchTabData]);
 
 
     const handleLoadMore = () => {
@@ -160,7 +159,6 @@ const ChannelPage: React.FC = () => {
                 {activeTab === 'playlists' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {playlists.map(p => (
-                            // Fix: Correctly reference the playlist item `p` instead of the undefined `playlist`.
                             <Link key={p.id} to={`/playlist/${p.id}`} className="group">
                                 <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
                                     <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />

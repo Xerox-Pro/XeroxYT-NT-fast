@@ -6,7 +6,6 @@ import App from './App';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { PlaylistProvider } from './contexts/PlaylistContext';
 import { NotificationProvider } from './contexts/NotificationContext';
-import { ApiKeyProvider } from './contexts/ApiKeyContext';
 import { SearchHistoryProvider } from './contexts/SearchHistoryContext';
 
 const rootElement = document.getElementById('root');
@@ -18,17 +17,15 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <ApiKeyProvider>
-        <SubscriptionProvider>
-          <PlaylistProvider>
-            <NotificationProvider>
-              <SearchHistoryProvider>
-                <App />
-              </SearchHistoryProvider>
-            </NotificationProvider>
-          </PlaylistProvider>
-        </SubscriptionProvider>
-      </ApiKeyProvider>
+      <SubscriptionProvider>
+        <PlaylistProvider>
+          <NotificationProvider>
+            <SearchHistoryProvider>
+              <App />
+            </SearchHistoryProvider>
+          </NotificationProvider>
+        </PlaylistProvider>
+      </SubscriptionProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

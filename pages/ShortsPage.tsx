@@ -1,13 +1,12 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ShortsPlayer from '../components/ShortsPlayer';
-import { searchVideos, getRecommendedVideos } from '../utils/api';
+import { searchVideos } from '../utils/api';
 import type { Video } from '../types';
-import { useApiKey } from '../contexts/ApiKeyContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
 
 const ShortsPage: React.FC = () => {
-    const { apiKey } = useApiKey();
     const { subscribedChannels } = useSubscription();
     const { searchHistory } = useSearchHistory();
     const [videos, setVideos] = useState<Video[]>([]);
@@ -30,12 +29,6 @@ const ShortsPage: React.FC = () => {
     }
 
     const loadShorts = useCallback(async () => {
-        if (!apiKey) {
-             setError("APIキーが設定されていません。");
-             setIsLoading(false);
-             return;
-        }
-        
         setIsLoading(true);
         setError(null);
         
@@ -64,7 +57,7 @@ const ShortsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [apiKey, shortsQueryTerms]);
+    }, [shortsQueryTerms]);
 
     useEffect(() => {
         loadShorts();

@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { useApiKey } from '../contexts/ApiKeyContext';
 import { getChannelVideos } from '../utils/api';
 import type { Video } from '../types';
 import VideoGrid from '../components/VideoGrid';
@@ -10,21 +9,15 @@ import { Link } from 'react-router-dom';
 
 const SubscriptionsPage: React.FC = () => {
     const { subscribedChannels } = useSubscription();
-    const { apiKey } = useApiKey();
     const [videos, setVideos] = useState<Video[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedChannelId, setSelectedChannelId] = useState<string>('all');
 
     const fetchSubscriptionFeed = useCallback(async () => {
-        if (!apiKey) {
-            setError("APIキーが設定されていません。");
-            setIsLoading(false);
-            return;
-        }
-
         if (subscribedChannels.length === 0) {
             setIsLoading(false);
+            setVideos([]);
             return;
         }
 
@@ -36,16 +29,18 @@ const SubscriptionsPage: React.FC = () => {
             let fetchedVideos: Video[] = [];
             if (selectedChannelId === 'all') {
                 const channelPromises = subscribedChannels.slice(0, 10).map(channel => 
-                    getChannelVideos(apiKey, channel.id).then(res => res.videos.slice(0, 5))
+                    getChannelVideos(channel.id).then(res => res.videos.slice(0, 5))
                 );
                 const results = await Promise.all(channelPromises);
                 fetchedVideos = results.flat();
             } else {
-                const result = await getChannelVideos(apiKey, selectedChannelId);
+                const result = await getChannelVideos(selectedChannelId);
                 fetchedVideos = result.videos;
             }
             
             const uniqueVideos = Array.from(new Map(fetchedVideos.map(v => [v.id, v])).values());
+            // Sort by a heuristic, as we don't have reliable dates
+            uniqueVideos.sort(() => Math.random() - 0.5); 
             setVideos(uniqueVideos);
 
         } catch (err: any) {
@@ -54,7 +49,7 @@ const SubscriptionsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [apiKey, subscribedChannels, selectedChannelId]);
+    }, [subscribedChannels, selectedChannelId]);
 
     useEffect(() => {
         fetchSubscriptionFeed();

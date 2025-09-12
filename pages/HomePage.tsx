@@ -1,9 +1,9 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import VideoGrid from '../components/VideoGrid';
 import ShortsShelf from '../components/ShortsShelf';
 import { getRecommendedVideos, searchVideos, getChannelVideos } from '../utils/api';
 import type { Video } from '../types';
-import { useApiKey } from '../contexts/ApiKeyContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
 
@@ -27,7 +27,6 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 }
 
 const HomePage: React.FC = () => {
-    const { apiKey } = useApiKey();
     const { subscribedChannels } = useSubscription();
     const { searchHistory } = useSearchHistory();
     const [videos, setVideos] = useState<Video[]>([]);
@@ -35,19 +34,13 @@ const HomePage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
 
     const loadMixedFeed = useCallback(async () => {
-        if (!apiKey) {
-            setIsLoading(false);
-            setError("APIキーが設定されていません。");
-            return;
-        }
-
         setIsLoading(true);
         setError(null);
         
         try {
             const promises = [
                 getRecommendedVideos().then(res => res.videos),
-                ...subscribedChannels.slice(0, 5).map(c => getChannelVideos(apiKey, c.id).then(res => res.videos.slice(0, 3))),
+                ...subscribedChannels.slice(0, 5).map(c => getChannelVideos(c.id).then(res => res.videos.slice(0, 3))),
                 ...searchHistory.slice(0, 5).map(term => searchVideos(term).then(res => res.videos.slice(0, 3)))
             ];
             
@@ -69,7 +62,7 @@ const HomePage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [apiKey, subscribedChannels, searchHistory]);
+    }, [subscribedChannels, searchHistory]);
 
     useEffect(() => {
         loadMixedFeed();

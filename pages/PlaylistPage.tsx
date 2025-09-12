@@ -6,13 +6,11 @@ import { getVideosByIds } from '../utils/api';
 import type { Video } from '../types';
 import { EditIcon, TrashIcon } from '../components/icons/Icons';
 import { Link } from 'react-router-dom';
-import { useApiKey } from '../contexts/ApiKeyContext';
 
 const PlaylistPage: React.FC = () => {
     const { playlistId } = useParams<{ playlistId: string }>();
     const navigate = useNavigate();
     const { playlists, renamePlaylist, removeVideoFromPlaylist, deletePlaylist } = usePlaylist();
-    const { apiKey } = useApiKey();
     
     const [videos, setVideos] = useState<Video[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -30,14 +28,9 @@ const PlaylistPage: React.FC = () => {
         setPlaylistName(playlist.name);
         
         const fetchVideos = async () => {
-            if (!apiKey) {
-                setIsLoading(false);
-                return;
-            };
-
             setIsLoading(true);
             if (playlist.videoIds.length > 0) {
-                const fetchedVideos = await getVideosByIds(apiKey, playlist.videoIds);
+                const fetchedVideos = await getVideosByIds(playlist.videoIds);
                 // Preserve order from playlist
                 const videoMap = new Map(fetchedVideos.map(v => [v.id, v]));
                 setVideos(playlist.videoIds.map(id => videoMap.get(id)).filter((v): v is Video => !!v));
@@ -47,7 +40,7 @@ const PlaylistPage: React.FC = () => {
             setIsLoading(false);
         };
         fetchVideos();
-    }, [playlist, playlistId, navigate, apiKey]);
+    }, [playlist, navigate]);
 
     if (!playlist) {
         return <div className="text-center p-8">プレイリストが見つかりません。</div>;
