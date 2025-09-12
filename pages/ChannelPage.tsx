@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos } from '../utils/api';
@@ -74,7 +73,7 @@ const ChannelPage: React.FC = () => {
                     setVideosPageToken(vData.nextPageToken);
                     break;
                 case 'shorts':
-                    const sData = await searchVideos(apiKey, `#shorts`, pageToken, channelId);
+                    const sData = await searchVideos(`#shorts`, undefined, channelId);
                     setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
                     setShortsPageToken(sData.nextPageToken);
                     break;
@@ -161,7 +160,8 @@ const ChannelPage: React.FC = () => {
                 {activeTab === 'playlists' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {playlists.map(p => (
-                            <Link key={p.id} to={`/playlist?list=${p.id}`} className="group">
+                            // Fix: Correctly reference the playlist item `p` instead of the undefined `playlist`.
+                            <Link key={p.id} to={`/playlist/${p.id}`} className="group">
                                 <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
                                     <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">

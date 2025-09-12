@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ShortsPlayer from '../components/ShortsPlayer';
 import { searchVideos, getRecommendedVideos } from '../utils/api';
@@ -31,15 +30,19 @@ const ShortsPage: React.FC = () => {
     }
 
     const loadShorts = useCallback(async () => {
-        if (!apiKey) return;
+        if (!apiKey) {
+             setError("APIキーが設定されていません。");
+             setIsLoading(false);
+             return;
+        }
         
         setIsLoading(true);
         setError(null);
         
         try {
             const promises = [
-                searchVideos(apiKey, 'trending #shorts').then(res => res.videos),
-                ...shortsQueryTerms.map(term => searchVideos(apiKey, term, '').then(res => res.videos))
+                searchVideos('trending #shorts').then(res => res.videos),
+                ...shortsQueryTerms.map(term => searchVideos(term, '').then(res => res.videos))
             ];
             
             const results = await Promise.allSettled(promises);

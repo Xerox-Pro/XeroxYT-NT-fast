@@ -1,78 +1,42 @@
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { searchVideos } from '../utils/api';
 import type { Video } from '../types';
 import SearchVideoResultCard from '../components/SearchVideoResultCard';
-import { useApiKey } from '../contexts/ApiKeyContext';
-
-const useInfiniteScroll = (callback: () => void) => {
-    const observer = useRef<IntersectionObserver | null>(null);
-    const lastElementRef = useCallback((node: HTMLDivElement | null) => {
-        if (observer.current) observer.current.disconnect();
-        observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting) {
-                callback();
-            }
-        });
-        if (node) observer.current.observe(node);
-    }, [callback]);
-
-    return lastElementRef;
-};
 
 const SearchResultsPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('search_query');
-    const { apiKey } = useApiKey();
     
     const [videos, setVideos] = useState<Video[]>([]);
-    const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-    const performSearch = useCallback(async (searchQuery: string, token?: string) => {
+    const performSearch = useCallback(async (searchQuery: string) => {
         if (!searchQuery) return;
         
-        if (!apiKey) {
-            setError("APIキーが設定されていません。");
-            setIsLoading(false);
-            return;
-        }
-
         setError(null);
-        token ? setIsLoadingMore(true) : setIsLoading(true);
+        setIsLoading(true);
         
         try {
-            const { videos: newVideos, nextPageToken: nextToken } = await searchVideos(apiKey, searchQuery, token);
-            setVideos(prev => token ? [...prev, ...newVideos] : newVideos);
-            setNextPageToken(nextToken);
+            const { videos: newVideos } = await searchVideos(searchQuery);
+            setVideos(newVideos);
         } catch (err: any) {
             setError(err.toString());
             console.error(err);
         } finally {
-            token ? setIsLoadingMore(false) : setIsLoading(false);
+            setIsLoading(false);
         }
-    }, [apiKey]);
+    }, []);
 
     useEffect(() => {
         setVideos([]);
-        setNextPageToken(undefined);
         if (query) {
             performSearch(query);
         } else {
             setIsLoading(false);
         }
     }, [query, performSearch]);
-
-    const handleLoadMore = useCallback(() => {
-        if (!isLoadingMore && nextPageToken && query) {
-            performSearch(query, nextPageToken);
-        }
-    }, [isLoadingMore, nextPageToken, query, performSearch]);
-
-    const lastElementRef = useInfiniteScroll(handleLoadMore);
 
     if (isLoading) {
         return (
@@ -95,7 +59,7 @@ const SearchResultsPage: React.FC = () => {
         return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
     }
 
-    if (videos.length === 0) {
+    if (videos.length === 0 && query) {
         return <div className="text-center">「{query}」の検索結果はありません。</div>
     }
 
@@ -106,12 +70,6 @@ const SearchResultsPage: React.FC = () => {
                     <SearchVideoResultCard key={`${video.id}-${index}`} video={video} />
                 ))}
             </div>
-            <div ref={lastElementRef} className="h-10">
-                {isLoadingMore && <p className="text-center">読み込み中...</p>}
-            </div>
-             {!isLoadingMore && !nextPageToken && videos.length > 0 && (
-                <div className="text-center text-yt-light-gray py-4">これ以上結果はありません。</div>
-            )}
         </div>
     );
 };

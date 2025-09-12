@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -116,32 +115,48 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
 
 // --- EXPORTED API FUNCTIONS ---
 
-export async function getRecommendedVideos(apiKey: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  return searchVideos(apiKey, "プロセカ", pageToken);
+export async function getRecommendedVideos(): Promise<{videos: Video[], nextPageToken?: string}> {
+  return searchVideos("プロセカ");
 }
 
-
-export async function searchVideos(apiKey: string, query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(query)}`;
-  if (pageToken) searchUrl += `&pageToken=${pageToken}`;
-  if (channelId) searchUrl += `&channelId=${channelId}`;
-
+export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
+  const url = `https://xeroxapp060.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=40`;
   try {
-    const searchData = await youtubeApiFetch(searchUrl, apiKey);
-    if (!searchData.items || searchData.items.length === 0) {
-        return { videos: [], nextPageToken: searchData.nextPageToken };
+    const response = await fetch(url);
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    const data = await response.json();
+    if (!Array.isArray(data)) {
+        console.error("Unexpected API response:", data);
+        throw new Error("Invalid data format from search API.");
+    }
+
+    let videos: Video[] = data.map((item: any): Video | null => {
+        if (item.type !== 'Video' || !item.id) return null;
+        return {
+            id: item.id,
+            thumbnailUrl: item.thumbnails?.find((t: any) => t.width >= 360)?.url || item.thumbnails?.[0]?.url,
+            duration: item.duration?.text || '',
+            isoDuration: '',
+            title: item.title?.text || 'No title',
+            channelName: item.author?.name || 'Unknown Channel',
+            channelId: item.author?.id,
+            channelAvatarUrl: item.author?.thumbnails?.[0]?.url || '',
+            views: item.short_view_count?.text || item.view_count?.text || '視聴回数不明',
+            uploadedAt: item.published?.text || '',
+        };
+    }).filter((v: Video | null): v is Video => v !== null && !!v.channelId);
+
+    if (channelId) {
+        videos = videos.filter(v => v.channelId === channelId);
     }
     
-    const videoIds = searchData.items.map((item: any) => item.id.videoId);
-    const videos = await getVideosByIds(apiKey, videoIds);
-
-    const videosById = new Map(videos.map(v => [v.id, v]));
-    const orderedVideos = videoIds.map(id => videosById.get(id)).filter((v): v is Video => !!v);
-    
-    return { videos: orderedVideos, nextPageToken: searchData.nextPageToken };
-  } catch (error) {
-    console.error('YouTube API search error:', error);
-    throw error;
+    return { videos, nextPageToken: undefined };
+  } catch (err) {
+    console.error('External API search error:', err);
+    throw err;
   }
 }
 
