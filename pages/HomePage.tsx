@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import VideoGrid from '../components/VideoGrid';
 import ShortsShelf from '../components/ShortsShelf';
-import { getRecommendedVideos, searchVideos, getChannelVideos } from '../utils/api';
+import { searchVideos, getChannelVideos } from '../utils/api';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
 import type { Video } from '../types';
@@ -17,6 +17,18 @@ const HomePage: React.FC = () => {
     const { subscribedChannels } = useSubscription();
     const { searchHistory } = useSearchHistory();
 
+    const parseISODuration = (isoDuration: string): number => {
+        if (!isoDuration) return 0;
+        // This regex handles PT#H#M#S format
+        const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+        const matches = isoDuration.match(regex);
+        if (!matches) return 0;
+        const hours = parseInt(matches[1] || '0', 10);
+        const minutes = parseInt(matches[2] || '0', 10);
+        const seconds = parseInt(matches[3] || '0', 10);
+        return hours * 3600 + minutes * 60 + seconds;
+    };
+
     const shuffleArray = <T,>(array: T[]): T[] => {
         const newArray = [...array];
         for (let i = newArray.length - 1; i > 0; i--) {
@@ -29,15 +41,17 @@ const HomePage: React.FC = () => {
     const loadRecommended = useCallback(async () => {
         setIsLoadingRecommended(true);
         try {
-            const fvideoPromise = getRecommendedVideos().then(res => res.videos);
             const searchPromises = searchHistory.slice(0, 5).map(term => searchVideos(term).then(res => res.videos));
             const channelPromises = subscribedChannels.slice(0, 10).map(channel => getChannelVideos(channel.id).then(res => res.videos.slice(0, 5)));
 
-            const results = await Promise.allSettled([fvideoPromise, ...searchPromises, ...channelPromises]);
+            const results = await Promise.allSettled([...searchPromises, ...channelPromises]);
             const allVideos = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
             
             const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.id, v])).values());
-            setRecommendedVideos(shuffleArray(uniqueVideos));
+            
+            const regularVideos = uniqueVideos.filter(v => parseISODuration(v.isoDuration) > 60);
+
+            setRecommendedVideos(shuffleArray(regularVideos));
         } catch (err: any) {
             setError(err.message || '動画の読み込みに失敗しました。');
             console.error(err);
@@ -55,7 +69,7 @@ const HomePage: React.FC = () => {
             const allShorts = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
 
             const uniqueShorts = Array.from(new Map(allShorts.map(v => [v.id, v])).values());
-            setShorts(shuffleArray(uniqueShorts.filter(v => v.isoDuration && (parseInt(v.isoDuration.slice(2, -1)) <= 60))));
+            setShorts(shuffleArray(uniqueShorts.filter(v => v.isoDuration && (parseISODuration(v.isoDuration) <= 60))));
         } catch (err) {
             console.error('Failed to load shorts:', err);
         } finally {

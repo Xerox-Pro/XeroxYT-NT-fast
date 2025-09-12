@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { getVideoDetails, getEmbedKey, getVideoComments } from '../utils/api';
@@ -6,7 +7,7 @@ import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkel
 import RelatedVideoCard from '../components/RelatedVideoCard';
 import PlaylistModal from '../components/PlaylistModal';
 import Comment from '../components/Comment';
-import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, DislikeIconFilled, MusicNoteIcon } from '../components/icons/Icons';
+import { LikeIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, MusicNoteIcon } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
 
@@ -24,7 +25,6 @@ const VideoPlayerPage: React.FC = () => {
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [isDisliked, setIsDisliked] = useState(false);
 
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
   const { addVideoToHistory } = useHistory();
@@ -102,12 +102,6 @@ const VideoPlayerPage: React.FC = () => {
 
   const handleLike = () => {
     setIsLiked(!isLiked);
-    if (isDisliked) setIsDisliked(false);
-  }
-
-  const handleDislike = () => {
-    setIsDisliked(!isDisliked);
-    if (isLiked) setIsLiked(false);
   }
 
   const embedSrc = `https://www.youtubeeducation.com/embed/${videoId}${embedKey}${playlistId ? `&playlist=${playlistId}` : ''}`;
@@ -167,19 +161,9 @@ const VideoPlayerPage: React.FC = () => {
                         </button>
                     </div>
                     <div className="flex items-center space-x-2 flex-wrap">
-                        <div className="flex items-center rounded-full h-10 bg-yt-light dark:bg-yt-dark-gray">
-                            <button onClick={handleLike} className="flex items-center gap-2 pl-4 pr-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 rounded-l-full transition-colors">
-                                {isLiked ? <LikeIconFilled /> : <LikeIcon />}
-                                <span className="text-sm font-semibold">{likes}</span>
-                            </button>
-                            <div className="w-px h-6 bg-yt-spec-light-20 dark:bg-yt-spec-20"></div>
-                            <button onClick={handleDislike} className="flex items-center px-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 rounded-r-full transition-colors">
-                                {isDisliked ? <DislikeIconFilled /> : <DislikeIcon />}
-                            </button>
-                        </div>
-                        <button className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors text-sm font-semibold">
-                            <ShareIcon />
-                            <span className="ml-2">共有</span>
+                        <button onClick={handleLike} className="flex items-center gap-2 px-4 h-10 bg-yt-light dark:bg-yt-dark-gray rounded-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
+                            {isLiked ? <LikeIconFilled /> : <LikeIcon />}
+                            <span className="text-sm font-semibold">{likes}</span>
                         </button>
                         <button 
                           onClick={() => setIsPlaylistModalOpen(true)}
