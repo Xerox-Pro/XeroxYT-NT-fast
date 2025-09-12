@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import VideoGrid from '../components/VideoGrid';
 import ShortsShelf from '../components/ShortsShelf';
-import { searchVideos, getChannelVideos } from '../utils/api';
+import { searchVideos, getChannelVideos, getRecommendedVideos } from '../utils/api';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
 import type { Video } from '../types';
@@ -41,14 +41,20 @@ const HomePage: React.FC = () => {
     const loadRecommended = useCallback(async () => {
         setIsLoadingRecommended(true);
         try {
-            const searchPromises = searchHistory.slice(0, 5).map(term => searchVideos(term).then(res => res.videos));
-            const channelPromises = subscribedChannels.slice(0, 10).map(channel => getChannelVideos(channel.id).then(res => res.videos.slice(0, 5)));
+            // Increase fetch sources from user's context
+            const searchPromises = searchHistory.slice(0, 10).map(term => searchVideos(term).then(res => res.videos));
+            const channelPromises = subscribedChannels.slice(0, 15).map(channel => getChannelVideos(channel.id).then(res => res.videos.slice(0, 10)));
 
             const results = await Promise.allSettled([...searchPromises, ...channelPromises]);
-            const allVideos = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
+            let personalizedVideos = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
             
-            const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.id, v])).values());
+            // Fallback to general recommendations if personalized feed is too small
+            if (personalizedVideos.length < 20) {
+                const { videos: trendingVideos } = await getRecommendedVideos();
+                personalizedVideos = [...personalizedVideos, ...trendingVideos];
+            }
             
+            const uniqueVideos = Array.from(new Map(personalizedVideos.map(v => [v.id, v])).values());
             const regularVideos = uniqueVideos.filter(v => parseISODuration(v.isoDuration) > 60);
 
             setRecommendedVideos(shuffleArray(regularVideos));
@@ -63,19 +69,20 @@ const HomePage: React.FC = () => {
     const loadShorts = useCallback(async () => {
         setIsLoadingShorts(true);
         try {
-            const searchTerms = ['#shorts', ...searchHistory.slice(0, 3).map(term => `${term} #shorts`)];
-            const promises = searchTerms.map(term => searchVideos(term).then(res => res.videos));
-            const results = await Promise.allSettled(promises);
-            const allShorts = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
-
-            const uniqueShorts = Array.from(new Map(allShorts.map(v => [v.id, v])).values());
-            setShorts(shuffleArray(uniqueShorts.filter(v => v.isoDuration && (parseISODuration(v.isoDuration) <= 60))));
+            // Reduce fetch sources to just the generic #shorts tag
+            const { videos } = await searchVideos('#shorts');
+            
+            const uniqueShorts = Array.from(new Map(videos.map(v => [v.id, v])).values());
+            const filteredShorts = uniqueShorts.filter(v => v.isoDuration && (parseISODuration(v.isoDuration) <= 60));
+            
+            // Limit the number of shorts displayed on the shelf
+            setShorts(shuffleArray(filteredShorts).slice(0, 15));
         } catch (err) {
             console.error('Failed to load shorts:', err);
         } finally {
             setIsLoadingShorts(false);
         }
-    }, [searchHistory]);
+    }, []);
 
 
     useEffect(() => {

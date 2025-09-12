@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import type { Channel } from '../types';
 
@@ -13,8 +14,8 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 // Hardcoded default channel that cannot be unsubscribed
 const FORCED_SUBSCRIPTION_CHANNEL: Channel = {
     id: 'UCCMV3NfZk_NB-MmUvHj6aFw', // This is AZKi's Channel ID
-    name: 'AZKi Channel',
-    avatarUrl: 'https://yt3.ggpht.com/b-LyLgA8IAo6PcG52Lg-GkBi1uP5y5vj2_cTR_Q2Yh5Ie94ImALB0m_29z1NO4e8-8yD8a_l=s176-c-k-c0x00ffffff-no-rj-mo',
+    name: 'Xerox',
+    avatarUrl: 'https://pbs.twimg.com/profile_images/1853733227271532544/FgMEnR7d_400x400.jpg',
     subscriberCount: '' // This can be empty as it's not used in the subscription list itself
 };
 

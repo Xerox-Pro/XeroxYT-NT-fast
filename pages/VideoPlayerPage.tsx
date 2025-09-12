@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { getVideoDetails, getEmbedKey, getVideoComments } from '../utils/api';
-import type { VideoDetails, Comment as CommentType, Channel } from '../types';
+import { getVideoDetails, getEmbedKey, getVideoComments, getVideosByIds } from '../utils/api';
+import type { VideoDetails, Comment as CommentType, Channel, Playlist, Video } from '../types';
 import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkeleton';
 import RelatedVideoCard from '../components/RelatedVideoCard';
 import PlaylistModal from '../components/PlaylistModal';
@@ -10,11 +10,37 @@ import Comment from '../components/Comment';
 import { LikeIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, MusicNoteIcon } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
+import { usePlaylist } from '../contexts/PlaylistContext';
+
+const PlaylistVideoCard: React.FC<{ video: Video; playlistId: string; index: number; isActive: boolean; }> = ({ video, playlistId, index, isActive }) => {
+  return (
+    <Link 
+      to={`/watch?v=${video.id}&list=${playlistId}`} 
+      className={`flex group cursor-pointer p-2 rounded-lg ${isActive ? 'bg-yt-spec-light-10 dark:bg-yt-spec-10' : 'hover:bg-yt-spec-light-10/50 dark:hover:bg-yt-spec-10/50'}`}
+    >
+      <span className="text-yt-light-gray w-6 text-center self-center">{index}</span>
+      <div className="relative w-28 flex-shrink-0 rounded-lg overflow-hidden ml-2">
+        <img src={video.thumbnailUrl} alt={video.title} className="w-full h-auto aspect-video object-cover" />
+        {video.duration && (
+            <span className="absolute bottom-1 right-1 bg-black bg-opacity-80 text-white text-xs px-1 py-0.5 rounded">
+            {video.duration}
+            </span>
+        )}
+      </div>
+      <div className="ml-3 flex-1">
+        <h3 className="text-black dark:text-white text-sm font-semibold leading-snug break-words max-h-10 overflow-hidden line-clamp-2">
+          {video.title}
+        </h3>
+        <p className="text-yt-light-gray text-xs mt-1">{video.channelName}</p>
+      </div>
+    </Link>
+  );
+};
 
 const VideoPlayerPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const videoId = searchParams.get('v');
-  const playlistId = searchParams.get('playlist');
+  const playlistId = searchParams.get('list');
   
   const [videoDetails, setVideoDetails] = useState<VideoDetails | null>(null);
   const [comments, setComments] = useState<CommentType[]>([]);
@@ -28,6 +54,12 @@ const VideoPlayerPage: React.FC = () => {
 
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
   const { addVideoToHistory } = useHistory();
+  const { playlists } = usePlaylist();
+
+  const [playlistVideos, setPlaylistVideos] = useState<Video[]>([]);
+  const [isPlaylistLoading, setIsPlaylistLoading] = useState(false);
+
+  const playlist = useMemo(() => playlists.find(p => p.id === playlistId) || null, [playlists, playlistId]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -84,6 +116,20 @@ const VideoPlayerPage: React.FC = () => {
     fetchAllData();
   }, [videoId, addVideoToHistory]);
 
+  useEffect(() => {
+    if (playlist) {
+        setIsPlaylistLoading(true);
+        setPlaylistVideos([]);
+        getVideosByIds(playlist.videoIds)
+            .then(fetchedVideos => {
+                const videoMap = new Map(fetchedVideos.map(v => [v.id, v]));
+                const orderedVideos = playlist.videoIds.map(id => videoMap.get(id)).filter((v): v is Video => !!v);
+                setPlaylistVideos(orderedVideos);
+            })
+            .finally(() => setIsPlaylistLoading(false));
+    }
+  }, [playlist]);
+
   if (isLoading) return <VideoPlayerPageSkeleton />;
   if (error) return <div className="text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-center">{error}</div>;
   if (!videoId || !embedKey) return null;
@@ -104,7 +150,9 @@ const VideoPlayerPage: React.FC = () => {
     setIsLiked(!isLiked);
   }
 
-  const embedSrc = `https://www.youtubeeducation.com/embed/${videoId}${embedKey}${playlistId ? `&playlist=${playlistId}` : ''}`;
+  const playlistVideoIdsStr = useMemo(() => playlist ? playlist.videoIds.join(',') : '', [playlist]);
+
+  const embedSrc = `https://www.youtubeeducation.com/embed/${videoId}${embedKey}${playlistVideoIdsStr ? `&playlist=${playlistVideoIdsStr}` : ''}`;
 
   return (
     <>
@@ -210,12 +258,38 @@ const VideoPlayerPage: React.FC = () => {
       </div>
       
       <div className="w-full lg:w-1/3 lg:max-w-md flex-shrink-0">
-        <h2 className="font-bold text-lg mb-4">次の動画</h2>
-        <div className="space-y-3">
-            {relatedVideos && relatedVideos.map(video => (
-                <RelatedVideoCard key={video.id} video={video} />
-            ))}
-        </div>
+        {playlist ? (
+            <div className="bg-yt-light dark:bg-yt-dark-gray p-3 rounded-xl">
+                <div className="px-2">
+                    <h2 className="font-bold text-lg mb-2 truncate">{playlist.name}</h2>
+                    <p className="text-sm text-yt-light-gray mb-4">
+                        {playlist.videoIds.indexOf(videoId || '') + 1} / {playlist.videoIds.length}
+                    </p>
+                </div>
+                <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
+                    {isPlaylistLoading 
+                        ? <div className="text-center p-4">読み込み中...</div>
+                        : playlistVideos.map((video, index) => (
+                            <PlaylistVideoCard 
+                                key={`${video.id}-${index}`} 
+                                video={video} 
+                                playlistId={playlist.id} 
+                                index={index + 1} 
+                                isActive={video.id === videoId} 
+                            />
+                        ))}
+                </div>
+            </div>
+        ) : (
+            <>
+                <h2 className="font-bold text-lg mb-4">次の動画</h2>
+                <div className="space-y-3">
+                    {relatedVideos && relatedVideos.map(video => (
+                        <RelatedVideoCard key={video.id} video={video} />
+                    ))}
+                </div>
+            </>
+        )}
       </div>
     </div>
     </>

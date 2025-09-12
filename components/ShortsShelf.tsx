@@ -25,12 +25,14 @@ const ShortsShelf: React.FC<ShortsShelfProps> = ({ shorts, isLoading }) => {
         <ShortsIcon />
         <h2 className="text-2xl font-bold ml-3">ショート</h2>
       </div>
-      <div className="flex space-x-4 overflow-x-auto pb-4 no-scrollbar">
-        {isLoading ? (
-          Array.from({ length: 10 }).map((_, index) => <ShortsCardSkeleton key={index} />)
-        ) : (
-          shorts.map(video => <ShortsCard key={video.id} video={video} />)
-        )}
+      <div className="overflow-hidden">
+        <div className="flex flex-nowrap space-x-4 overflow-x-auto pb-4 no-scrollbar">
+          {isLoading ? (
+            Array.from({ length: 10 }).map((_, index) => <ShortsCardSkeleton key={index} />)
+          ) : (
+            shorts.map(video => <ShortsCard key={video.id} video={video} />)
+          )}
+        </div>
       </div>
     </section>
   );
