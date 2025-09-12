@@ -223,8 +223,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         throw new Error(data.playability_status.reason || 'この動画は利用できません。');
     }
     
-    if (!data.primary_info || !data.secondary_info) {
-        throw new Error('APIからの動画詳細の解析に失敗しました。');
+    if (!data.primary_info || !data.secondary_info || !data.basic_info) {
+        throw new Error('APIからの動画詳細の解析に失敗しました。データが不完全です。');
     }
 
     const primary = data.primary_info;
@@ -238,8 +238,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     })).filter((b: any) => b.type && b.tooltip);
 
     const channel: Channel = {
-        id: owner?.id || basic.channel.id || '', 
-        name: owner?.name || basic.channel.name ||'不明なチャンネル',
+        id: owner?.id || basic.channel?.id || '', 
+        name: owner?.name || basic.channel?.name ||'不明なチャンネル',
         avatarUrl: owner?.thumbnails?.find((t: any) => t.width > 80)?.url || owner?.thumbnails?.[0]?.url || '',
         subscriberCount: secondary.owner?.subscriber_count?.text || '',
         badges,
@@ -275,10 +275,11 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     return {
         id: videoId, thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
         duration: formatDuration(basic.duration), isoDuration: `PT${basic.duration}S`,
-        title: primary.title.text || basic.title, channelName: channel.name, channelId: channel.id,
-        channelAvatarUrl: channel.avatarUrl, views: primary.view_count.text || formatNumber(basic.view_count),
-        uploadedAt: primary.relative_date.text, description: parseDescriptionRuns(secondary.description.runs) || basic.short_description,
-        likes: formatNumber(basic.like_count), dislikes: '0',
+        title: primary.title?.text || basic.title || '無題の動画',
+        channelName: channel.name, channelId: channel.id,
+        channelAvatarUrl: channel.avatarUrl, views: primary.view_count?.text || formatNumber(basic.view_count || 0),
+        uploadedAt: primary.relative_date?.text || '', description: parseDescriptionRuns(secondary.description?.runs) || basic.short_description || '',
+        likes: formatNumber(basic.like_count || 0), dislikes: '0',
         channel: channel, relatedVideos: relatedVideos, comments: [], // Comments are fetched separately
         superTitleLinks: superTitleLinks,
     };

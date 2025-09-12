@@ -76,7 +76,7 @@ const HomePage: React.FC = () => {
             const filteredShorts = uniqueShorts.filter(v => v.isoDuration && (parseISODuration(v.isoDuration) <= 60));
             
             // Limit the number of shorts displayed on the shelf
-            setShorts(shuffleArray(filteredShorts).slice(0, 15));
+            setShorts(shuffleArray(filteredShorts).slice(0, 5));
         } catch (err) {
             console.error('Failed to load shorts:', err);
         } finally {
