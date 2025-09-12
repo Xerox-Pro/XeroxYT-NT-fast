@@ -144,36 +144,28 @@ const mapInvidiousDetailsToVideo = (item: any): Video => {
 }
 
 // --- NEW SEARCH HELPERS ---
-const parseDurationToSeconds = (duration: string): number => {
-    if (!duration || duration === 'N/A') return 0;
-    const parts = duration.split(':').map(Number);
-    let seconds = 0;
-    if (parts.length === 3) { // HH:MM:SS
-        seconds += parts[0] * 3600;
-        seconds += parts[1] * 60;
-        seconds += parts[2];
-    } else if (parts.length === 2) { // MM:SS
-        seconds += parts[0] * 60;
-        seconds += parts[1];
-    } else if (parts.length === 1) { // SS
-        seconds += parts[0];
+// New mapper for the updated search API response format
+const mapXeroxSearchResultToVideo = (item: any): Video | null => {
+    // Only process items of type 'Video' which have an ID.
+    if (item?.type !== 'Video' || !item.id) {
+        return null;
     }
-    return seconds;
-};
 
-const mapXeroxSearchResultToVideo = (item: any): Video => {
-    const durationInSeconds = parseDurationToSeconds(item.duration);
+    const durationInSeconds = item.duration?.seconds ?? 0;
+    const bestThumbnail = item.thumbnails?.find((t: any) => t.width >= 360) || item.thumbnails?.[0];
+
+    // Safely access nested properties with optional chaining and provide fallbacks.
     return {
         id: item.id,
-        thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
-        duration: item.duration || '0:00',
+        thumbnailUrl: bestThumbnail?.url || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`, // Fallback to standard URL
+        duration: item.duration?.text || '0:00',
         isoDuration: `PT${durationInSeconds}S`,
-        title: item.title,
-        channelName: item.channel,
-        channelId: item.channelId,
-        channelAvatarUrl: item.channelIcon,
-        views: '不明', // 新しいAPIでは提供されない
-        uploadedAt: '', // 新しいAPIでは提供されない
+        title: item.title?.text || '無題の動画',
+        channelName: item.author?.name || '不明なチャンネル',
+        channelId: item.author?.id || '',
+        channelAvatarUrl: item.author?.thumbnails?.[0]?.url || '',
+        views: item.view_count?.text || '視聴回数不明',
+        uploadedAt: item.published?.text || '',
     };
 };
 
@@ -193,18 +185,21 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
   try {
     const data = await proxiedFetch(url);
 
-    if (!data.results || !Array.isArray(data.results)) {
+    // The new API response format is an array of video objects.
+    if (!Array.isArray(data)) {
       console.error("Unexpected API response:", data);
-      throw new Error("Invalid data format from search API.");
+      throw new Error("Invalid data format from search API. Expected an array.");
     }
 
-    let videos: Video[] = data.results.map(mapXeroxSearchResultToVideo);
+    let videos: Video[] = data
+        .map(mapXeroxSearchResultToVideo)
+        .filter((v): v is Video => v !== null);
     
     if (channelId) {
         videos = videos.filter(v => v.channelId === channelId);
     }
     
-    // The new API doesn't support pagination, so nextPageToken is undefined
+    // The API doesn't seem to support pagination in a way we can use, so nextPageToken is undefined
     return { videos, nextPageToken: undefined };
   } catch (error) {
       console.error(`Failed to fetch search results for query: ${query}`, error);
