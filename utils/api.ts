@@ -312,7 +312,7 @@ export async function getVideoComments(videoId: string): Promise<Comment[]> {
 
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
     if (videoIds.length === 0) return [];
-    const promises = videoIds.map(id => apiFetch(`/videos/${id}`).then(mapInvidiousDetailsToVideo).catch(err => {
+    const promises = videoIds.map(id => getVideoDetails(id).catch(err => {
         console.error(`Failed to fetch video ${id}`, err); return null;
     }));
     const results = await Promise.all(promises);
