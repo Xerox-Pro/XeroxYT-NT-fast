@@ -24,7 +24,8 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notification, onClo
         <p className="text-sm text-black dark:text-white line-clamp-2">
           <strong>{channel.name}</strong> が新しい動画を公開しました: {video.title}
         </p>
-        <p className="text-xs text-yt-blue mt-1">{formatTimeAgo(publishedAt)}</p>
+        {/* FIX: The 'publishedAt' property is an ISO string, but 'formatTimeAgo' expects a Unix timestamp (number). Convert the string to a timestamp in seconds before passing it to the function. */}
+        <p className="text-xs text-yt-blue mt-1">{formatTimeAgo(new Date(publishedAt).getTime() / 1000)}</p>
       </div>
       <div className="flex-shrink-0 ml-4">
         <img src={video.thumbnailUrl} alt={video.title} className="w-28 aspect-video rounded-md" />

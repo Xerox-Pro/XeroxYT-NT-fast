@@ -1,40 +1,33 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
-const PROXY_API_BASE_URL = 'https://xeroxapp060.vercel.app/api';
+// より安定した公開APIインスタンスをバックエンドとして使用します
+const API_BASE_URL = 'https://invidious.projectsegfau.lt/api/v1';
 
 // --- HELPER FUNCTIONS ---
 
-const formatNumber = (numStr: string | number): string => {
-  const num = Number(String(numStr).replace(/,/g, ''));
-  if (isNaN(num)) return String(numStr);
+const formatNumber = (num: number): string => {
+  if (isNaN(num)) return '0';
   if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
   if (num >= 10_000) return `${Math.floor(num / 10_000)}万`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}千`;
   return num.toLocaleString();
 };
 
-const formatDuration = (duration: string): string => {
-  if (!duration) return "0:00";
-  const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
-  if (!match) return "0:00";
-  
-  match.shift(); // remove full match
-  
-  const [hours, minutes, seconds] = match.map(val => (val ? parseInt(val.slice(0, -1), 10) : 0));
+const formatDuration = (totalSeconds: number): string => {
+  if (isNaN(totalSeconds) || totalSeconds < 0) return "0:00";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
-export const formatTimeAgo = (dateStr: string): string => {
-  if (!dateStr) return '';
-  if (!dateStr.endsWith('Z')) { // Handle relative time strings from unofficial API
-      return dateStr;
-  }
-  const date = new Date(dateStr);
+export const formatTimeAgo = (unixTimestamp: number): string => {
+  if (!unixTimestamp) return '';
+  const date = new Date(unixTimestamp * 1000);
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
@@ -51,10 +44,10 @@ export const formatTimeAgo = (dateStr: string): string => {
   return `${Math.floor(seconds)}秒前`;
 };
 
-// --- CENTRALIZED PROXY API FETCHER ---
+// --- CENTRALIZED API FETCHER ---
 
-const proxyApiFetch = async (endpoint: string) => {
-  const response = await fetch(`${PROXY_API_BASE_URL}${endpoint}`);
+const apiFetch = async (endpoint: string) => {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`);
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(errorText || 'サーバーにアクセスできませんでした。');
@@ -63,89 +56,97 @@ const proxyApiFetch = async (endpoint: string) => {
 };
 
 
-// --- DATA MAPPING HELPER ---
+// --- DATA MAPPING HELPERS ---
 
-const mapProxyItemToVideo = (item: any): Video | null => {
-    if (item.type !== 'video' && item.type !== 'Video' || !item.id) return null;
+const mapInvidiousItemToVideo = (item: any): Video | null => {
+    if (item.type !== 'video' || !item.videoId) return null;
+    const bestThumbnail = item.videoThumbnails?.find((t: any) => t.quality === 'medium') || item.videoThumbnails?.[0];
+    
     return {
-        id: item.id,
-        thumbnailUrl: item.thumbnails?.find((t: any) => t.width >= 360)?.url || item.thumbnails?.[0]?.url,
-        duration: item.duration?.text || '',
-        isoDuration: item.isoDuration || '', // Assuming proxy might provide this
-        title: item.title?.text || item.title || 'No title',
-        channelName: item.author?.name || 'Unknown Channel',
-        channelId: item.author?.id,
-        channelAvatarUrl: item.author?.thumbnails?.[0]?.url || '',
-        views: item.short_view_count?.text || item.view_count?.text || '視聴回数不明',
-        uploadedAt: item.published?.text || '',
+        id: item.videoId,
+        thumbnailUrl: bestThumbnail?.url || '',
+        duration: formatDuration(item.lengthSeconds),
+        isoDuration: `PT${item.lengthSeconds}S`, // ショート動画判定のためにISO形式を再構築
+        title: item.title,
+        channelName: item.author,
+        channelId: item.authorId,
+        channelAvatarUrl: '', // 検索結果には含まれないため、別途取得が必要
+        views: `${formatNumber(item.viewCount)}回視聴`,
+        uploadedAt: item.publishedText || formatTimeAgo(item.published),
     };
 };
+
+const mapInvidiousDetailsToVideo = (item: any): Video => {
+     const bestThumbnail = item.videoThumbnails?.find((t: any) => t.quality === 'medium') || item.videoThumbnails?.[0];
+    return {
+        id: item.videoId,
+        thumbnailUrl: bestThumbnail?.url || '',
+        duration: formatDuration(item.lengthSeconds),
+        isoDuration: `PT${item.lengthSeconds}S`,
+        title: item.title,
+        channelName: item.author,
+        channelId: item.authorId,
+        channelAvatarUrl: item.authorThumbnails?.[0]?.url || '',
+        views: `${formatNumber(item.viewCount)}回視聴`,
+        uploadedAt: item.publishedText || formatTimeAgo(item.published),
+    }
+}
+
 
 // --- EXPORTED API FUNCTIONS ---
 
 export async function getRecommendedVideos(): Promise<{videos: Video[], nextPageToken?: string}> {
-  try {
-    const data = await proxyApiFetch('/trending');
-    if (!Array.isArray(data)) throw new Error("Invalid data format from trending API.");
-    const videos = data.map(mapProxyItemToVideo).filter((v): v is Video => v !== null);
-    return { videos, nextPageToken: undefined };
-  } catch(err) {
-    console.warn("Trending API failed, falling back to search", err);
-    return searchVideos("人気の音楽");
-  }
+  const data = await apiFetch('/trending');
+  if (!Array.isArray(data)) throw new Error("Invalid data format from trending API.");
+  const videos = data.map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
+  return { videos, nextPageToken: undefined };
 }
 
 export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const url = `/search?q=${encodeURIComponent(query)}&limit=20${channelId ? `&channelId=${channelId}` : ''}`;
-  try {
-    const data = await proxyApiFetch(url);
-    if (!Array.isArray(data)) {
-        console.error("Unexpected API response:", data);
-        throw new Error("Invalid data format from search API.");
-    }
-    const videos = data.map(mapProxyItemToVideo).filter((v): v is Video => v !== null);
-    return { videos, nextPageToken: undefined };
-  } catch (err) {
-    console.error('External API search error:', err);
-    throw new Error('サーバーにアクセスできませんでした。');
+  const url = `/search?q=${encodeURIComponent(query)}`;
+  const data = await apiFetch(url);
+  if (!Array.isArray(data)) {
+      console.error("Unexpected API response:", data);
+      throw new Error("Invalid data format from search API.");
   }
+  let videos = data.map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
+  
+  if (channelId) {
+      videos = videos.filter(v => v.channelId === channelId);
+  }
+  
+  return { videos, nextPageToken: undefined }; // Invidious search doesn't support pagination
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-  const data = await proxyApiFetch(`/details?id=${videoId}`);
+  const [videoData, commentsData] = await Promise.all([
+      apiFetch(`/videos/${videoId}`),
+      apiFetch(`/comments/${videoId}`).catch(() => ({ comments: [] })) // コメント取得が失敗してもページ全体が壊れないようにする
+  ]);
 
   const channel: Channel = {
-    id: data.author.id,
-    name: data.author.name,
-    avatarUrl: data.author.thumbnails?.[0]?.url,
-    subscriberCount: `チャンネル登録者数 ${data.author.subscriber_count?.text || ''}`,
+    id: videoData.authorId,
+    name: videoData.author,
+    avatarUrl: videoData.authorThumbnails?.[0]?.url || '',
+    subscriberCount: `${formatNumber(videoData.subCount)}`,
   };
   
-  const relatedVideos: Video[] = (data.related_videos || []).map(mapProxyItemToVideo).filter((v): v is Video => v !== null);
+  const relatedVideos: Video[] = (videoData.recommendedVideos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
 
-  const comments: Comment[] = (data.comments || []).map((item: any): Comment => ({
-    id: item.id,
-    author: item.author.name,
-    authorAvatarUrl: item.author.thumbnails?.[0]?.url,
-    text: item.text,
-    likes: formatNumber(item.like_count?.text || '0'),
-    publishedAt: item.published.text,
+  const comments: Comment[] = (commentsData.comments || []).map((item: any): Comment => ({
+    id: item.commentId,
+    author: item.author,
+    authorAvatarUrl: item.authorThumbnails?.[0]?.url,
+    text: item.contentHtml, // HTML形式のコメントを利用
+    likes: formatNumber(item.likeCount),
+    publishedAt: item.publishedText,
   }));
 
   return {
-    id: data.id,
-    channelId: data.author.id,
-    thumbnailUrl: data.thumbnails?.find((t: any) => t.width > 1000)?.url || data.thumbnails?.[0]?.url,
-    duration: data.duration?.text || '',
-    isoDuration: data.isoDuration || '',
-    title: data.title,
-    channelName: data.author.name,
-    channelAvatarUrl: channel.avatarUrl,
-    views: `${data.view_count?.text || '0'}回視聴`,
-    uploadedAt: data.published?.text || '',
-    description: data.description || '',
-    likes: formatNumber(data.like_count?.text || '0'),
-    dislikes: '0',
+    ...mapInvidiousDetailsToVideo(videoData),
+    description: videoData.descriptionHtml, // HTML形式の概要を利用
+    likes: formatNumber(videoData.likeCount),
+    dislikes: '0', // APIから提供されない
     channel: channel,
     relatedVideos: relatedVideos,
     comments: comments
@@ -155,10 +156,9 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
     if (videoIds.length === 0) return [];
     
-    // Fetch details for each video in parallel
     const promises = videoIds.map(id => 
-        proxyApiFetch(`/details?id=${id}`)
-            .then(mapProxyItemToVideo)
+        apiFetch(`/videos/${id}`)
+            .then(mapInvidiousDetailsToVideo)
             .catch(err => {
                 console.error(`Failed to fetch video ${id}`, err);
                 return null;
@@ -169,37 +169,39 @@ export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
 }
 
 export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
-    const data = await proxyApiFetch(`/channel?id=${channelId}`);
-    if (!data.id) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
+    const data = await apiFetch(`/channels/${channelId}`);
+    if (!data.authorId) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
     
     return {
-        id: data.id,
-        name: data.name,
-        avatarUrl: data.thumbnails?.find((t:any) => t.width > 150)?.url || data.thumbnails?.[0]?.url,
-        subscriberCount: `チャンネル登録者数 ${data.subscriber_count?.text || ''}`,
-        bannerUrl: data.banner?.find((b: any) => b.width > 1000)?.url,
+        id: data.authorId,
+        name: data.author,
+        avatarUrl: data.authorThumbnails?.find((t:any) => t.width > 150)?.url || data.authorThumbnails?.[0]?.url,
+        subscriberCount: `チャンネル登録者数 ${formatNumber(data.subCount)}`,
+        bannerUrl: data.authorBanners?.find((b: any) => b.width > 1000)?.url,
     };
 }
 
-export async function getChannelVideos(channelId: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-    // Note: The proxy API might use different pagination (e.g., cursor). Adjust if needed.
-    const endpoint = `/channel/${channelId}/videos${pageToken ? `?cursor=${pageToken}` : ''}`;
-    const data = await proxyApiFetch(endpoint);
+export async function getChannelVideos(channelId: string, pageToken = '1'): Promise<{videos: Video[], nextPageToken?: string}> {
+    const page = parseInt(pageToken, 10);
+    const data = await apiFetch(`/channels/${channelId}/videos?page=${page}`);
     
-    const videos: Video[] = (data.videos || []).map(mapProxyItemToVideo).filter((v): v is Video => v !== null);
+    const videos: Video[] = (data.videos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
     
-    return { videos, nextPageToken: data.next_page_token || undefined };
+    const hasMore = videos.length > 0;
+    return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
 
-export async function getChannelPlaylists(channelId: string, pageToken = ''): Promise<{playlists: ApiPlaylist[], nextPageToken?: string}> {
-    const endpoint = `/channel/${channelId}/playlists${pageToken ? `?cursor=${pageToken}` : ''}`;
-    const data = await proxyApiFetch(endpoint);
+export async function getChannelPlaylists(channelId: string, pageToken = '1'): Promise<{playlists: ApiPlaylist[], nextPageToken?: string}> {
+    const page = parseInt(pageToken, 10);
+    const data = await apiFetch(`/channels/${channelId}/playlists?page=${page}`);
 
     const playlists: ApiPlaylist[] = (data.playlists || []).map((item: any): ApiPlaylist => ({
-        id: item.id,
+        id: item.playlistId,
         title: item.title,
-        thumbnailUrl: item.thumbnails?.find((t:any) => t.width > 300)?.url || item.thumbnails?.[0]?.url,
-        videoCount: item.video_count || 0,
+        thumbnailUrl: item.videos?.[0]?.videoThumbnails?.find((t:any) => t.quality === "medium")?.url,
+        videoCount: item.videoCount,
     }));
-    return { playlists, nextPageToken: data.next_page_token || undefined };
+    
+    const hasMore = playlists.length > 0;
+    return { playlists, nextPageToken: hasMore ? String(page + 1) : undefined };
 }

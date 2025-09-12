@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { getVideoDetails } from '../utils/api';
 import type { VideoDetails } from '../types';
@@ -9,19 +9,6 @@ import Comment from '../components/Comment';
 import PlaylistModal from '../components/PlaylistModal';
 import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, DislikeIconFilled } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
-
-const parseDescription = (text: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const hashtagRegex = /#(\w+)/g;
-
-  const parts = text
-    .replace(urlRegex, (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yt-blue">${url}</a>`)
-    .replace(hashtagRegex, (hashtag, tag) => `<a href="https://www.youtube.com/results?search_query=${encodeURIComponent(tag)}" target="_blank" rel="noopener noreferrer" class="text-yt-blue">${hashtag}</a>`)
-    .split('\n');
-    
-  return parts;
-};
-
 
 const VideoPlayerPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -61,19 +48,11 @@ const VideoPlayerPage: React.FC = () => {
     fetchDetails();
   }, [videoId]);
 
-  const descriptionParts = useMemo(() => {
-    if (videoDetails?.description) {
-      return parseDescription(videoDetails.description);
-    }
-    return [];
-  }, [videoDetails?.description]);
-
-
   if (isLoading) return <VideoPlayerPageSkeleton />;
   if (error) return <div className="text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-center">{error}</div>;
   if (!videoDetails) return null;
 
-  const { title, channel, views, uploadedAt, likes, relatedVideos, comments } = videoDetails;
+  const { title, channel, views, uploadedAt, likes, relatedVideos, comments, description } = videoDetails;
   const subscribed = isSubscribed(channel.id);
 
   const handleSubscription = () => {
@@ -168,11 +147,10 @@ const VideoPlayerPage: React.FC = () => {
         <div className="bg-yt-light dark:bg-yt-dark-gray p-3 rounded-xl mt-4 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
             <div onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="cursor-pointer">
               <p className="font-semibold text-sm">{views} • {uploadedAt}</p>
-              <div className={`text-sm mt-2 whitespace-pre-wrap ${!isDescriptionExpanded ? 'line-clamp-3' : ''}`}>
-                  {descriptionParts.map((part, index) => (
-                    <span key={index} dangerouslySetInnerHTML={{ __html: part + '<br/>' }} />
-                  ))}
-              </div>
+              <div 
+                  className={`text-sm mt-2 whitespace-pre-wrap ${!isDescriptionExpanded ? 'line-clamp-3' : ''} prose prose-sm dark:prose-invert prose-a:text-yt-blue`}
+                  dangerouslySetInnerHTML={{ __html: description }} 
+              />
               <button className="font-semibold text-sm mt-2">
                   {isDescriptionExpanded ? '一部を表示' : '...もっと見る'}
               </button>
