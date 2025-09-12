@@ -1,26 +1,29 @@
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
+// サーバーリストを更新し、より多くの安定したインスタンスを含めました
 const INSTANCES = [
-  'https://invidious.projectsegfau.lt',
   'https://vid.puffyan.us',
   'https://invidious.kavin.rocks',
   'https://iv.ggtyler.dev',
-  'https://invidious.io.lol',
+  'https://invidious.nerdvpn.de',
+  'https://invidious.lunar.icu',
+  'https://inv.odyssey346.dev',
+  'https://invidious.slipfox.xyz',
 ];
 
-let currentInstanceIndex = 0;
-
 // --- CENTRALIZED API FETCHER WITH FALLBACKS ---
+// 堅牢性を高めるためにAPI取得ロジックを改善しました
 const apiFetch = async (endpoint: string) => {
-  const maxRetries = INSTANCES.length;
-  for (let i = 0; i < maxRetries; i++) {
-    const instanceUrl = INSTANCES[currentInstanceIndex];
+  // 毎回リストをシャッフルして、特定のエンドポイントへの負荷を分散させます
+  const shuffledInstances = [...INSTANCES].sort(() => Math.random() - 0.5);
+
+  for (const instanceUrl of shuffledInstances) {
     const fullUrl = `${instanceUrl}/api/v1${endpoint}`;
     
     try {
-      // 8秒のタイムアウトを設定
-      const response = await fetch(fullUrl, { signal: AbortSignal.timeout(8000) });
+      // 応答しないサーバーでの待ち時間を短縮するためにタイムアウトを5秒に設定
+      const response = await fetch(fullUrl, { signal: AbortSignal.timeout(5000) });
       if (!response.ok) {
         console.warn(`Instance ${instanceUrl} failed with status ${response.status}. Trying next...`);
         throw new Error(`Server error: ${response.status}`);
@@ -28,9 +31,8 @@ const apiFetch = async (endpoint: string) => {
       // 成功！JSONを返却
       return await response.json();
     } catch (error) {
-      console.error(`Fetch from ${instanceUrl} failed.`, error);
-      // 次のインスタンスへ
-      currentInstanceIndex = (currentInstanceIndex + 1) % INSTANCES.length;
+      console.error(`Fetch from ${instanceUrl} failed. Retrying with next instance.`, error);
+      // ループは自動的に次のインスタンスで続行します
     }
   }
   // すべてのインスタンスが失敗した場合
