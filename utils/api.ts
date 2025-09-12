@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -107,6 +106,30 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
   if (interval > 1) return `${Math.floor(interval)}分前`;
   return `${Math.floor(seconds)}秒前`;
 };
+
+const parseDescriptionRuns = (runs: any[]): string => {
+    if (!runs || !Array.isArray(runs)) return '';
+    return runs.map(run => {
+        if (run.endpoint) {
+            let url = '#';
+            const payload = run.endpoint.payload;
+            if (payload?.url) {
+                const rawUrl = payload.url;
+                if (rawUrl.startsWith('/redirect?')) {
+                    const urlParams = new URLSearchParams(rawUrl.split('?')[1]);
+                    url = urlParams.get('q') || rawUrl;
+                } else {
+                    url = rawUrl;
+                }
+            } else if (payload?.browseId) {
+                url = `/channel/${payload.browseId}`;
+            }
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yt-blue">${run.text}</a>`;
+        }
+        return run.text.replace(/\n/g, '<br />');
+    }).join('');
+};
+
 
 // --- DATA MAPPING HELPERS ---
 
@@ -227,48 +250,81 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-  const videoData = await apiFetch(`/videos/${videoId}`);
-  const commentsData = await apiFetch(`/comments/${videoId}`).catch(() => ({ comments: [] }));
+    const url = `https://xeroxapp60.vercel.app/api/video?id=${videoId}`;
+    const data = await proxiedFetch(url);
 
-  const channel: Channel = {
-    id: videoData.authorId,
-    name: videoData.author,
-    avatarUrl: videoData.authorThumbnails?.find((t: any) => t.width > 80)?.url || videoData.authorThumbnails?.[0]?.url || '',
-    subscriberCount: videoData.subCountText || `${formatNumber(videoData.subCount)} subscribers`,
-  };
+    if (data.playability_status?.status === 'LOGIN_REQUIRED') {
+        throw new Error(data.playability_status.reason || 'This video is unavailable.');
+    }
+    
+    if (!data.primary_info || !data.secondary_info) {
+        throw new Error('Failed to parse video details from API.');
+    }
 
-  const relatedVideos: Video[] = (videoData.recommendedVideos || [])
-    .map(mapInvidiousItemToVideo)
-    .filter((v): v is Video => v !== null);
+    const primary = data.primary_info;
+    const secondary = data.secondary_info;
 
-  const comments: Comment[] = (commentsData.comments || []).map((item: any): Comment => ({
-    id: item.commentId,
-    author: item.author,
-    authorAvatarUrl: item.authorThumbnails?.[0]?.url,
-    text: item.contentHtml,
-    likes: formatNumber(item.likeCount),
-    publishedAt: item.publishedText,
-  }));
+    const channel: Channel = {
+        id: secondary.owner.author.id,
+        name: secondary.owner.author.name,
+        avatarUrl: secondary.owner.author.thumbnails?.find((t: any) => t.width > 80)?.url || secondary.owner.author.thumbnails?.[0]?.url || '',
+        subscriberCount: secondary.owner.subscriber_count.text,
+    };
 
-  return {
-    id: videoData.videoId,
-    thumbnailUrl: `https://i.ytimg.com/vi/${videoData.videoId}/hqdefault.jpg`,
-    duration: formatDuration(videoData.lengthSeconds),
-    isoDuration: `PT${videoData.lengthSeconds}S`,
-    title: videoData.title,
-    channelName: channel.name,
-    channelId: channel.id,
-    channelAvatarUrl: channel.avatarUrl,
-    views: `${formatNumber(videoData.viewCount)}回視聴`,
-    uploadedAt: videoData.publishedText || formatTimeAgo(videoData.published),
-    description: videoData.descriptionHtml || (videoData.description || '').replace(/\n/g, '<br />'),
-    likes: formatNumber(videoData.likeCount),
-    dislikes: formatNumber(videoData.dislikeCount),
-    channel: channel,
-    relatedVideos: relatedVideos,
-    comments: comments
-  };
+    const relatedVideos: Video[] = (data.watch_next_feed || [])
+        .map((item: any): Video | null => {
+            if (item.type !== 'LockupView' || !item.content_id) return null;
+            
+            const metadata = item.metadata?.metadata;
+            if (!metadata) return null;
+            
+            const title = item.metadata?.title?.text || '';
+            const channelName = metadata.metadata_rows?.[0]?.metadata_parts?.[0]?.text?.text || '';
+            const metaParts = metadata.metadata_rows?.[1]?.metadata_parts;
+            const views = metaParts?.[0]?.text?.text || '';
+            const uploadedAt = metaParts?.[1]?.text?.text || '';
+            
+            const endScreenData = data.player_overlays?.end_screen?.results?.find((r:any) => r.id === item.content_id);
+            const duration = endScreenData?.duration?.text || '';
+
+            return {
+                id: item.content_id,
+                thumbnailUrl: `https://i.ytimg.com/vi/${item.content_id}/hqdefault.jpg`,
+                duration: duration,
+                isoDuration: '', // Not available
+                title,
+                channelName,
+                channelId: '', // Not available
+                channelAvatarUrl: '', // Not available
+                views,
+                uploadedAt,
+            };
+        })
+        .filter((v): v is Video => v !== null);
+
+    // Main video duration is not available in the new API response.
+    const mainVideoDuration = '';
+
+    return {
+        id: videoId,
+        thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        duration: mainVideoDuration,
+        isoDuration: '',
+        title: primary.title.text,
+        channelName: channel.name,
+        channelId: channel.id,
+        channelAvatarUrl: channel.avatarUrl,
+        views: primary.view_count.text,
+        uploadedAt: primary.relative_date.text,
+        description: parseDescriptionRuns(secondary.description.runs),
+        likes: formatNumber(data.basic_info.like_count),
+        dislikes: '0', // Not available
+        channel: channel,
+        relatedVideos: relatedVideos,
+        comments: [] // Comments are not available in this API response
+    };
 }
+
 
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
     if (videoIds.length === 0) return [];
