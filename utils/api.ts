@@ -1,3 +1,4 @@
+
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3';
@@ -120,7 +121,7 @@ export async function getRecommendedVideos(): Promise<{videos: Video[], nextPage
 }
 
 export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const url = `https://xeroxapp060.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=40`;
+  const url = `https://xeroxapp060.vercel.app/api/search?q=${encodeURIComponent(query)}&limit=20`;
   try {
     const response = await fetch(url);
     if (!response.ok) {
