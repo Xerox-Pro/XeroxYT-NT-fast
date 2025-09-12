@@ -47,9 +47,9 @@ const HomePage: React.FC = () => {
         
         try {
             const promises = [
-                getRecommendedVideos().then(res => res.videos),
+                getRecommendedVideos(apiKey).then(res => res.videos),
                 ...subscribedChannels.slice(0, 5).map(c => getChannelVideos(apiKey, c.id).then(res => res.videos.slice(0, 3))),
-                ...searchHistory.slice(0, 5).map(term => searchVideos(term, '').then(res => res.videos.slice(0, 3)))
+                ...searchHistory.slice(0, 5).map(term => searchVideos(apiKey, term, '').then(res => res.videos.slice(0, 3)))
             ];
             
             const results = await Promise.allSettled(promises);

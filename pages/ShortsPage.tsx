@@ -38,8 +38,8 @@ const ShortsPage: React.FC = () => {
         
         try {
             const promises = [
-                searchVideos('trending #shorts').then(res => res.videos),
-                ...shortsQueryTerms.map(term => searchVideos(term, '').then(res => res.videos))
+                searchVideos(apiKey, 'trending #shorts').then(res => res.videos),
+                ...shortsQueryTerms.map(term => searchVideos(apiKey, term, '').then(res => res.videos))
             ];
             
             const results = await Promise.allSettled(promises);

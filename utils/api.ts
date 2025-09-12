@@ -116,53 +116,31 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
 
 // --- EXPORTED API FUNCTIONS ---
 
-export async function getRecommendedVideos(pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  return searchVideos("プロセカ", pageToken);
+export async function getRecommendedVideos(apiKey: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
+  return searchVideos(apiKey, "プロセカ", pageToken);
 }
 
 
-export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const endpoint = `https://xeroxapp060.vercel.app/api/search`;
-  const url = `${endpoint}?q=${encodeURIComponent(query)}`;
+export async function searchVideos(apiKey: string, query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
+  let searchUrl = `${YOUTUBE_API_BASE_URL}/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(query)}`;
+  if (pageToken) searchUrl += `&pageToken=${pageToken}`;
+  if (channelId) searchUrl += `&channelId=${channelId}`;
 
   try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-        throw new Error(`検索サーバーへの接続に失敗しました (${response.status})`);
-    }
-
-    const data = await response.json();
-    
-    if (!data || !Array.isArray(data) || data.length === 0) {
-        return { videos: [], nextPageToken: undefined };
+    const searchData = await youtubeApiFetch(searchUrl, apiKey);
+    if (!searchData.items || searchData.items.length === 0) {
+        return { videos: [], nextPageToken: searchData.nextPageToken };
     }
     
-    const videos: Video[] = data
-        .filter((item: any) => item && item.type === 'Video')
-        .map((item: any): Video => {
-            const bestThumbnail = item.thumbnails?.find((t: any) => t.width === 720) || item.thumbnails?.[0] || { url: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg` };
-            
-            const thumbnailUrl = bestThumbnail.url.startsWith('//') ? `https:${bestThumbnail.url}` : bestThumbnail.url;
-            const channelAvatarUrl = item.author?.thumbnails?.[0]?.url ? (item.author.thumbnails[0].url.startsWith('//') ? `https:${item.author.thumbnails[0].url}` : item.author.thumbnails[0].url) : '';
+    const videoIds = searchData.items.map((item: any) => item.id.videoId);
+    const videos = await getVideosByIds(apiKey, videoIds);
 
-            return {
-                id: item.id,
-                thumbnailUrl: thumbnailUrl,
-                duration: item.duration?.text || '',
-                isoDuration: item.duration?.seconds ? `PT${item.duration.seconds}S` : '',
-                title: item.title?.text || 'タイトルなし',
-                channelName: item.author?.name || '不明なチャンネル',
-                channelId: item.author?.id || '',
-                channelAvatarUrl: channelAvatarUrl,
-                views: item.short_view_count?.text || item.view_count?.text || '視聴回数不明',
-                uploadedAt: item.published?.text || '',
-            };
-        });
-
-    return { videos, nextPageToken: undefined };
+    const videosById = new Map(videos.map(v => [v.id, v]));
+    const orderedVideos = videoIds.map(id => videosById.get(id)).filter((v): v is Video => !!v);
+    
+    return { videos: orderedVideos, nextPageToken: searchData.nextPageToken };
   } catch (error) {
-    console.error('非公式API検索エラー:', error);
+    console.error('YouTube API search error:', error);
     throw error;
   }
 }
