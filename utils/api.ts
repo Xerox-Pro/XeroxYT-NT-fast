@@ -1,4 +1,5 @@
-import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist, ChannelBadge, SuperTitleLink } from '../types';
+
+import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, ChannelBadge } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
 const INSTANCES = [
@@ -45,43 +46,6 @@ const apiFetch = async (endpoint: string) => {
   }
   throw new Error('すべてのAPIサーバーにアクセスできませんでした。時間をおいて再度お試しください。');
 };
-
-// --- NEW EMBED KEY FETCHER ---
-interface EmbedKeyCache {
-    key: string;
-    timestamp: number;
-}
-let embedKeyCache: EmbedKeyCache | null = null;
-const CACHE_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours to refresh 3 times a day
-
-export const getEmbedKey = async (): Promise<string> => {
-    const now = Date.now();
-    if (embedKeyCache && (now - embedKeyCache.timestamp < CACHE_DURATION_MS)) {
-        return embedKeyCache.key;
-    }
-    
-    console.log('Fetching new embed key. Cache was stale or empty.');
-    try {
-        const configUrl = 'https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json';
-        const data = await proxiedFetch(configUrl);
-        if (typeof data.params === 'string') {
-            embedKeyCache = {
-                key: data.params,
-                timestamp: now,
-            };
-            return embedKeyCache.key;
-        }
-        throw new Error('Invalid video_config.json format');
-    } catch (error) {
-        console.error("Failed to fetch embed key:", error);
-        if (embedKeyCache) {
-            console.warn("Returning stale embed key due to fetch failure.");
-            return embedKeyCache.key;
-        }
-        throw new Error('動画プレーヤーの設定の読み込みに失敗しました。');
-    }
-};
-
 
 // --- HELPER FUNCTIONS ---
 const formatNumber = (num: number): string => {
@@ -142,7 +106,7 @@ const parseDescriptionRuns = (runs: any[]): string => {
             }
             return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yt-blue hover:underline">${run.text}</a>`;
         }
-        return run.text ? run.text.replace(/\n/g, '<br />') : '';
+        return run.text && typeof run.text === 'string' ? run.text.replace(/\n/g, '<br />') : '';
     }).join('');
 };
 
@@ -249,18 +213,6 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         badges,
     };
 
-    const superTitleLinks: SuperTitleLink[] = (primary.super_title_link?.runs || [])
-        .map((run: any) => {
-            if (run.text && run.text.trim().startsWith('#')) {
-                return {
-                    text: run.text.trim(),
-                    url: `/results?search_query=${encodeURIComponent(run.text.trim())}`
-                };
-            }
-            return null;
-        })
-        .filter((l): l is SuperTitleLink => l !== null);
-
     const relatedVideos: Video[] = (data.watch_next_feed || [])
         .filter((item: any) => item.type === 'LockupView' && item.content_type === 'VIDEO' && item.content_id)
         .map((item: any): Video | null => {
@@ -287,34 +239,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         uploadedAt: primary.relative_date?.text || primary.published?.text || '', 
         description: parseDescriptionRuns(secondary.description?.runs) || '',
         likes: formatNumber(basic.like_count || 0), dislikes: '0',
-        channel: channel, relatedVideos: relatedVideos, comments: [], // Comments are fetched separately
-        superTitleLinks: superTitleLinks,
+        channel: channel, relatedVideos: relatedVideos,
     };
-}
-
-export async function getVideoComments(videoId: string): Promise<Comment[]> {
-    const url = `https://xeroxapp060.vercel.app/api/comments?id=${videoId}`;
-    try {
-        const data = await proxiedFetch(url);
-        if (!data.comments || !Array.isArray(data.comments)) {
-            console.warn(`No comments found or invalid format for video ${videoId}`);
-            return [];
-        }
-        return data.comments.map((item: any): Comment => ({
-            id: item.comment_id,
-            text: item.text,
-            publishedAt: item.published_time,
-            author: item.author.name,
-            authorAvatarUrl: item.author.thumbnails?.[0]?.url,
-            authorChannelId: item.author.id,
-            likes: item.like_count?.toString().trim() || '0',
-            replyCount: item.reply_count,
-            isPinned: item.is_pinned,
-        }));
-    } catch (error) {
-        console.error(`Failed to fetch comments for video ${videoId}`, error);
-        return [];
-    }
 }
 
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {

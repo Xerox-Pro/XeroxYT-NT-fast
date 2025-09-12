@@ -1,5 +1,5 @@
+
 import React from 'react';
-import { Link } from 'react-router-dom';
 import type { Video } from '../types';
 
 interface ShortsCardProps {
@@ -8,7 +8,7 @@ interface ShortsCardProps {
 
 const ShortsCard: React.FC<ShortsCardProps> = ({ video }) => {
   return (
-    <Link to={`/watch?v=${video.id}`} className="w-44 flex-shrink-0 group cursor-pointer">
+    <div className="w-44 flex-shrink-0 group">
       <div className="relative rounded-xl overflow-hidden">
         <img 
           src={video.thumbnailUrl} 
@@ -22,7 +22,7 @@ const ShortsCard: React.FC<ShortsCardProps> = ({ video }) => {
         </h3>
         <p className="text-yt-light-gray text-sm mt-1">{video.views}</p>
       </div>
-    </Link>
+    </div>
   );
 };
 

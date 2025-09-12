@@ -14,7 +14,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, hideChannelInfo = false })
   };
   
   return (
-    <Link to={`/watch?v=${video.id}`} className="flex flex-col group cursor-pointer">
+    <div className="flex flex-col group">
       <div className="relative rounded-xl overflow-hidden">
         <img src={video.thumbnailUrl} alt={video.title} className="w-full h-auto aspect-video object-cover group-hover:scale-105 transition-transform duration-300" />
         {video.duration && (
@@ -47,7 +47,7 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, hideChannelInfo = false })
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 };
 

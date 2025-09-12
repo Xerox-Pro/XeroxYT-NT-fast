@@ -1,3 +1,4 @@
+
 export interface Video {
   id: string;
   thumbnailUrl: string;
@@ -25,31 +26,12 @@ export interface Channel {
   badges?: ChannelBadge[];
 }
 
-export interface Comment {
-  id: string;
-  author: string;
-  authorAvatarUrl: string;
-  authorChannelId: string;
-  publishedAt: string;
-  text: string;
-  likes: string;
-  replyCount: string;
-  isPinned: boolean;
-}
-
-export interface SuperTitleLink {
-    text: string;
-    url: string;
-}
-
 export interface VideoDetails extends Video {
   description: string;
   likes: string;
   dislikes: string;
   channel: Channel;
   relatedVideos: Video[];
-  comments: Comment[];
-  superTitleLinks?: SuperTitleLink[];
 }
 
 export interface ChannelDetails {

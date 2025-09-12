@@ -4,7 +4,6 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import HomePage from './pages/HomePage';
-import VideoPlayerPage from './pages/VideoPlayerPage';
 import SearchResultsPage from './pages/SearchResultsPage';
 import ChannelPage from './pages/ChannelPage';
 import YouPage from './pages/YouPage';
@@ -39,7 +38,6 @@ const App: React.FC = () => {
         <main className={`flex-1 mt-14 ${mainContentMargin} ${mainContentPadding} transition-all duration-300`}>
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/watch" element={<VideoPlayerPage />} />
             <Route path="/results" element={<SearchResultsPage />} />
             <Route path="/channel/:channelId" element={<ChannelPage />} />
             <Route path="/you" element={<YouPage />} />
