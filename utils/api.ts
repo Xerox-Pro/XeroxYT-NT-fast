@@ -110,7 +110,8 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
 // --- DATA MAPPING HELPERS ---
 
 const mapInvidiousItemToVideo = (item: any): Video | null => {
-    if (item.type !== 'video' || !item.videoId) return null;
+    // The '/channels/:id/videos' endpoint items lack a 'type' field, so we only check for videoId.
+    if (!item.videoId) return null;
     const bestThumbnail = item.videoThumbnails?.find((t: any) => t.quality === 'medium') || item.videoThumbnails?.[0];
     
     return {

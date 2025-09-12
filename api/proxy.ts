@@ -12,6 +12,7 @@ export default async function handler(req: Request): Promise<Response> {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
+        'Cache-Control': 'public, max-age=86400', // Cache preflight for a day
       },
     });
   }
@@ -69,9 +70,14 @@ export default async function handler(req: Request): Promise<Response> {
     // Check content-type, but still try to parse as JSON. Some APIs misconfigure headers.
     const data = await response.json();
 
+    const responseHeaders = {
+        ...commonHeaders,
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=60', // 1 hour CDN cache
+    };
+
     return new Response(JSON.stringify(data, null, 2), {
       status: 200,
-      headers: commonHeaders,
+      headers: responseHeaders,
     });
   } catch (error) {
     let errorMessage = 'An unknown error occurred';
