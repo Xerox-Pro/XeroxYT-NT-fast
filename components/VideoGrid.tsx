@@ -6,9 +6,10 @@ import VideoCardSkeleton from './icons/VideoCardSkeleton';
 interface VideoGridProps {
   videos: Video[];
   isLoading: boolean;
+  hideChannelInfo?: boolean;
 }
 
-const VideoGrid: React.FC<VideoGridProps> = ({ videos, isLoading }) => {
+const VideoGrid: React.FC<VideoGridProps> = ({ videos, isLoading, hideChannelInfo = false }) => {
   if (isLoading && videos.length === 0) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8">
@@ -26,7 +27,7 @@ const VideoGrid: React.FC<VideoGridProps> = ({ videos, isLoading }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8">
       {videos.map(video => (
-        <VideoCard key={video.id} video={video} />
+        <VideoCard key={video.id} video={video} hideChannelInfo={hideChannelInfo} />
       ))}
     </div>
   );

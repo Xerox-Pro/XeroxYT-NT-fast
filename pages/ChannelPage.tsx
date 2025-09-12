@@ -94,8 +94,7 @@ const ChannelPage: React.FC = () => {
             setVideosPageToken(undefined); setShortsPageToken(undefined); setPlaylistsPageToken(undefined);
             fetchTabData(activeTab);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, channelId]);
+    }, [activeTab, channelId, fetchTabData]);
 
 
     const handleLoadMore = () => {
@@ -163,8 +162,8 @@ const ChannelPage: React.FC = () => {
             </div>
 
             <div className="mt-6">
-                {activeTab === 'videos' && <VideoGrid videos={videos} isLoading={isTabLoading && videos.length === 0} />}
-                {activeTab === 'shorts' && <VideoGrid videos={shorts} isLoading={isTabLoading && shorts.length === 0} />}
+                {activeTab === 'videos' && <VideoGrid videos={videos} isLoading={isTabLoading && videos.length === 0} hideChannelInfo={true} />}
+                {activeTab === 'shorts' && <VideoGrid videos={shorts} isLoading={isTabLoading && shorts.length === 0} hideChannelInfo={true} />}
                 {activeTab === 'playlists' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {playlists.map(p => (

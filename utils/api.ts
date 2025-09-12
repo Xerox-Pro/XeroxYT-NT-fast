@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -116,7 +115,7 @@ const mapInvidiousItemToVideo = (item: any): Video | null => {
     
     return {
         id: item.videoId,
-        thumbnailUrl: bestThumbnail?.url || '',
+        thumbnailUrl: bestThumbnail?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
         duration: formatDuration(item.lengthSeconds),
         isoDuration: `PT${item.lengthSeconds}S`, // ショート動画判定のためにISO形式を再構築
         title: item.title,
@@ -132,7 +131,7 @@ const mapInvidiousDetailsToVideo = (item: any): Video => {
      const bestThumbnail = item.videoThumbnails?.find((t: any) => t.quality === 'medium') || item.videoThumbnails?.[0];
     return {
         id: item.videoId,
-        thumbnailUrl: bestThumbnail?.url || '',
+        thumbnailUrl: bestThumbnail?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
         duration: formatDuration(item.lengthSeconds),
         isoDuration: `PT${item.lengthSeconds}S`,
         title: item.title,

@@ -1,13 +1,13 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import type { Video } from '../types';
 
 interface VideoCardProps {
   video: Video;
+  hideChannelInfo?: boolean;
 }
 
-const VideoCard: React.FC<VideoCardProps> = ({ video }) => {
+const VideoCard: React.FC<VideoCardProps> = ({ video, hideChannelInfo = false }) => {
   const handleChannelLinkClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -21,21 +21,27 @@ const VideoCard: React.FC<VideoCardProps> = ({ video }) => {
         </span>
       </div>
       <div className="flex mt-3">
-        <div className="flex-shrink-0">
-          <Link to={`/channel/${video.channelId}`} onClick={handleChannelLinkClick}>
-            <img src={video.channelAvatarUrl} alt={video.channelName} className="w-9 h-9 rounded-full" />
-          </Link>
-        </div>
-        <div className="ml-3">
-          <h3 className="text-black dark:text-white text-lg font-medium leading-snug break-words max-h-14 overflow-hidden">
+        {!hideChannelInfo && video.channelId && (
+          <div className="flex-shrink-0">
+            <Link to={`/channel/${video.channelId}`} onClick={handleChannelLinkClick}>
+              <img src={video.channelAvatarUrl} alt={video.channelName} className="w-9 h-9 rounded-full" />
+            </Link>
+          </div>
+        )}
+        <div className={!hideChannelInfo && video.channelId ? 'ml-3' : ''}>
+          <h3 className="text-black dark:text-white text-base font-medium leading-snug break-words max-h-12 overflow-hidden line-clamp-2">
             {video.title}
           </h3>
-          <Link to={`/channel/${video.channelId}`} onClick={handleChannelLinkClick} className="text-yt-light-gray text-sm mt-1 hover:text-black dark:hover:text-white">
-            {video.channelName}
-          </Link>
-          <p className="text-yt-light-gray text-sm">
-            {[video.views?.includes('不明') ? null : video.views, video.uploadedAt].filter(Boolean).join(' \u2022 ')}
-          </p>
+          <div className="text-yt-light-gray text-sm mt-1">
+            {!hideChannelInfo && video.channelId && (
+                <Link to={`/channel/${video.channelId}`} onClick={handleChannelLinkClick} className="hover:text-black dark:hover:text-white block">
+                    {video.channelName}
+                </Link>
+            )}
+            <p>
+              {[video.views?.includes('不明') ? null : video.views, video.uploadedAt].filter(Boolean).join(' \u2022 ')}
+            </p>
+          </div>
         </div>
       </div>
     </Link>
