@@ -112,11 +112,10 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
 const mapInvidiousItemToVideo = (item: any): Video | null => {
     // The '/channels/:id/videos' endpoint items lack a 'type' field, so we only check for videoId.
     if (!item.videoId) return null;
-    const bestThumbnail = item.videoThumbnails?.find((t: any) => t.quality === 'medium') || item.videoThumbnails?.[0];
     
     return {
         id: item.videoId,
-        thumbnailUrl: bestThumbnail?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+        thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
         duration: formatDuration(item.lengthSeconds),
         isoDuration: `PT${item.lengthSeconds}S`, // ショート動画判定のためにISO形式を再構築
         title: item.title,
@@ -129,10 +128,9 @@ const mapInvidiousItemToVideo = (item: any): Video | null => {
 };
 
 const mapInvidiousDetailsToVideo = (item: any): Video => {
-     const bestThumbnail = item.videoThumbnails?.find((t: any) => t.quality === 'medium') || item.videoThumbnails?.[0];
     return {
         id: item.videoId,
-        thumbnailUrl: bestThumbnail?.url || `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+        thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
         duration: formatDuration(item.lengthSeconds),
         isoDuration: `PT${item.lengthSeconds}S`,
         title: item.title,
@@ -153,12 +151,11 @@ const mapXeroxSearchResultToVideo = (item: any): Video | null => {
     }
 
     const durationInSeconds = item.duration?.seconds ?? 0;
-    const bestThumbnail = item.thumbnails?.find((t: any) => t.width >= 360) || item.thumbnails?.[0];
 
     // Safely access nested properties with optional chaining and provide fallbacks.
     return {
         id: item.id,
-        thumbnailUrl: bestThumbnail?.url || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`, // Fallback to standard URL
+        thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
         duration: item.duration?.text || '0:00',
         isoDuration: `PT${durationInSeconds}S`,
         title: item.title?.text || '無題の動画',
@@ -290,12 +287,15 @@ export async function getChannelPlaylists(channelId: string, pageToken = '1'): P
     const page = parseInt(pageToken, 10);
     const data = await apiFetch(`/channels/${channelId}/playlists?page=${page}`);
 
-    const playlists: ApiPlaylist[] = (data.playlists || []).map((item: any): ApiPlaylist => ({
-        id: item.playlistId,
-        title: item.title,
-        thumbnailUrl: item.videos?.[0]?.videoThumbnails?.find((t:any) => t.quality === "medium")?.url,
-        videoCount: item.videoCount,
-    }));
+    const playlists: ApiPlaylist[] = (data.playlists || []).map((item: any): ApiPlaylist => {
+        const firstVideoId = item.videos?.[0]?.videoId;
+        return {
+            id: item.playlistId,
+            title: item.title,
+            thumbnailUrl: firstVideoId ? `https://i.ytimg.com/vi/${firstVideoId}/hqdefault.jpg` : undefined,
+            videoCount: item.videoCount,
+        };
+    });
     
     const hasMore = playlists.length > 0;
     return { playlists, nextPageToken: hasMore ? String(page + 1) : undefined };

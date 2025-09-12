@@ -39,6 +39,7 @@ const ChannelPage: React.FC = () => {
     const [playlistsPageToken, setPlaylistsPageToken] = useState<string | undefined>();
 
     const [isTabLoading, setIsTabLoading] = useState(false);
+    const isFetchingRef = useRef(false);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
 
@@ -60,7 +61,9 @@ const ChannelPage: React.FC = () => {
     }, [channelId]);
     
     const fetchTabData = useCallback(async (tab: Tab, pageToken?: string) => {
-        if (!channelId || isTabLoading) return;
+        if (!channelId || isFetchingRef.current) return;
+        
+        isFetchingRef.current = true;
         setIsTabLoading(true);
 
         try {
@@ -85,8 +88,9 @@ const ChannelPage: React.FC = () => {
             console.error(`Failed to load ${tab}`, err);
         } finally {
             setIsTabLoading(false);
+            isFetchingRef.current = false;
         }
-    }, [channelId, isTabLoading]);
+    }, [channelId]);
     
     useEffect(() => {
         if(channelId) {
@@ -169,7 +173,11 @@ const ChannelPage: React.FC = () => {
                         {playlists.map(p => (
                             <Link key={p.id} to={`/playlist/${p.id}`} className="group">
                                 <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
-                                    <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />
+                                    {p.thumbnailUrl ? (
+                                        <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-yt-gray" />
+                                    )}
                                     <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
                                         <div className="text-center text-white">
                                             <PlaylistIcon />

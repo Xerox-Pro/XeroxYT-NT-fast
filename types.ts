@@ -1,4 +1,5 @@
 
+
 export interface Video {
   id: string;
   thumbnailUrl: string;
@@ -74,6 +75,6 @@ export interface Notification {
 export interface ApiPlaylist {
   id: string;
   title: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string;
   videoCount: number;
 }
