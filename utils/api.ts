@@ -1,3 +1,4 @@
+
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist, ChannelBadge, SuperTitleLink } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -15,7 +16,7 @@ const INSTANCES = [
 const proxiedFetch = async (targetUrl: string) => {
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
     try {
-        const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) });
+        const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(180000) });
         let result;
         try {
             result = await response.json();
