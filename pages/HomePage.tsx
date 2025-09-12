@@ -1,75 +1,74 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import VideoGrid from '../components/VideoGrid';
+import ShortsShelf from '../components/ShortsShelf';
 import { getRecommendedVideos, searchVideos, getChannelVideos } from '../utils/api';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
 import type { Video } from '../types';
 
 const HomePage: React.FC = () => {
-    const [videos, setVideos] = useState<Video[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [recommendedVideos, setRecommendedVideos] = useState<Video[]>([]);
+    const [shorts, setShorts] = useState<Video[]>([]);
+    const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
+    const [isLoadingShorts, setIsLoadingShorts] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const { subscribedChannels } = useSubscription();
     const { searchHistory } = useSearchHistory();
 
-    const loadHomePageFeed = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        
+    const shuffleArray = <T,>(array: T[]): T[] => {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+    };
+
+    const loadRecommended = useCallback(async () => {
+        setIsLoadingRecommended(true);
         try {
-            const promises = [];
+            const fvideoPromise = getRecommendedVideos().then(res => res.videos);
+            const searchPromises = searchHistory.slice(0, 5).map(term => searchVideos(term).then(res => res.videos));
+            const channelPromises = subscribedChannels.slice(0, 10).map(channel => getChannelVideos(channel.id).then(res => res.videos.slice(0, 5)));
 
-            // 1. Fetch from /api/fvideo
-            promises.push(getRecommendedVideos().then(res => res.videos));
-
-            // 2. Fetch based on search history (top 5 recent)
-            const searchTerms = searchHistory.slice(0, 5);
-            searchTerms.forEach(term => {
-                promises.push(searchVideos(term).then(res => res.videos));
-            });
+            const results = await Promise.allSettled([fvideoPromise, ...searchPromises, ...channelPromises]);
+            const allVideos = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
             
-            // 3. Fetch from subscribed channels (latest 5 videos from up to 10 channels)
-            const channelsToFetch = subscribedChannels.slice(0, 10);
-            channelsToFetch.forEach(channel => {
-                promises.push(getChannelVideos(channel.id).then(res => res.videos.slice(0, 5)));
-            });
-
-            const results = await Promise.allSettled(promises);
-
-            let allVideos: Video[] = [];
-            results.forEach(result => {
-                if (result.status === 'fulfilled' && Array.isArray(result.value)) {
-                    allVideos.push(...result.value);
-                }
-            });
-
-            // De-duplicate videos
             const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.id, v])).values());
-            
-            // Shuffle for a mixed feed
-            const shuffleArray = (array: Video[]) => {
-                for (let i = array.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [array[i], array[j]] = [array[j], array[i]];
-                }
-                return array;
-            };
-
-            setVideos(shuffleArray(uniqueVideos));
-
+            setRecommendedVideos(shuffleArray(uniqueVideos));
         } catch (err: any) {
             setError(err.message || '動画の読み込みに失敗しました。');
             console.error(err);
         } finally {
-            setIsLoading(false);
+            setIsLoadingRecommended(false);
         }
     }, [subscribedChannels, searchHistory]);
 
+    const loadShorts = useCallback(async () => {
+        setIsLoadingShorts(true);
+        try {
+            const searchTerms = ['#shorts', ...searchHistory.slice(0, 3).map(term => `${term} #shorts`)];
+            const promises = searchTerms.map(term => searchVideos(term).then(res => res.videos));
+            const results = await Promise.allSettled(promises);
+            const allShorts = results.flatMap(result => (result.status === 'fulfilled' && Array.isArray(result.value) ? result.value : []));
+
+            const uniqueShorts = Array.from(new Map(allShorts.map(v => [v.id, v])).values());
+            setShorts(shuffleArray(uniqueShorts.filter(v => v.isoDuration && (parseInt(v.isoDuration.slice(2, -1)) <= 60))));
+        } catch (err) {
+            console.error('Failed to load shorts:', err);
+        } finally {
+            setIsLoadingShorts(false);
+        }
+    }, [searchHistory]);
+
+
     useEffect(() => {
-        loadHomePageFeed();
-    }, [loadHomePageFeed]);
+        setError(null);
+        loadRecommended();
+        loadShorts();
+    }, [loadRecommended, loadShorts]);
     
 
     if (error) {
@@ -77,8 +76,10 @@ const HomePage: React.FC = () => {
     }
 
     return (
-        <div>
-            <VideoGrid videos={videos} isLoading={isLoading} />
+        <div className="space-y-8">
+            <ShortsShelf shorts={shorts} isLoading={isLoadingShorts} />
+            <hr className="border-yt-spec-light-20 dark:border-yt-spec-20" />
+            <VideoGrid videos={recommendedVideos} isLoading={isLoadingRecommended} />
         </div>
     );
 };

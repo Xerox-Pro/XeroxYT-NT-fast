@@ -1,20 +1,22 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { getVideoDetails } from '../utils/api';
+import { getVideoDetails, getEmbedKey } from '../utils/api';
 import type { VideoDetails } from '../types';
 import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkeleton';
 import RelatedVideoCard from '../components/RelatedVideoCard';
-import Comment from '../components/Comment';
 import PlaylistModal from '../components/PlaylistModal';
 import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, DislikeIconFilled } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useHistory } from '../contexts/HistoryContext';
 
 const VideoPlayerPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const videoId = searchParams.get('v');
+  const playlistId = searchParams.get('playlist');
   
   const [videoDetails, setVideoDetails] = useState<VideoDetails | null>(null);
+  const [embedKey, setEmbedKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -23,10 +25,12 @@ const VideoPlayerPage: React.FC = () => {
   const [isDisliked, setIsDisliked] = useState(false);
 
   const { isSubscribed, subscribe, unsubscribe } = useSubscription();
+  const { addVideoToHistory } = useHistory();
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    const fetchDetails = async () => {
+
+    const fetchAllData = async () => {
       if (!videoId) {
         setError("動画IDが見つかりません。");
         setIsLoading(false);
@@ -35,9 +39,17 @@ const VideoPlayerPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       setVideoDetails(null);
+
       try {
-        const details = await getVideoDetails(videoId);
+        const [details, key] = await Promise.all([
+            getVideoDetails(videoId),
+            getEmbedKey()
+        ]);
         setVideoDetails(details);
+        setEmbedKey(key);
+        if (details) {
+            addVideoToHistory(details);
+        }
       } catch (err: any) {
         setError(err.message || '動画の読み込みに失敗しました。後でもう一度お試しください。');
         console.error(err);
@@ -45,14 +57,14 @@ const VideoPlayerPage: React.FC = () => {
         setIsLoading(false);
       }
     };
-    fetchDetails();
-  }, [videoId]);
+    fetchAllData();
+  }, [videoId, addVideoToHistory]);
 
   if (isLoading) return <VideoPlayerPageSkeleton />;
   if (error) return <div className="text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-center">{error}</div>;
-  if (!videoDetails) return null;
+  if (!videoDetails || !embedKey) return null;
 
-  const { title, channel, views, uploadedAt, likes, relatedVideos, comments, description } = videoDetails;
+  const { title, channel, views, uploadedAt, likes, relatedVideos, description } = videoDetails;
   const subscribed = isSubscribed(channel.id);
 
   const handleSubscription = () => {
@@ -73,6 +85,9 @@ const VideoPlayerPage: React.FC = () => {
     if (isLiked) setIsLiked(false);
   }
 
+  const embedSrc = `https://www.youtubeeducation.com/embed/${videoId}${embedKey}${playlistId ? `&playlist=${playlistId}` : ''}`;
+
+
   return (
     <>
     {isPlaylistModalOpen && videoId && (
@@ -82,7 +97,7 @@ const VideoPlayerPage: React.FC = () => {
       <div className="flex-grow lg:w-2/3">
         <div className="w-full aspect-video bg-black rounded-xl mb-4 flex items-center justify-center overflow-hidden">
           <iframe
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+            src={embedSrc}
             title="YouTube video player"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -110,7 +125,6 @@ const VideoPlayerPage: React.FC = () => {
                 </button>
             </div>
             <div className="flex items-center space-x-2 flex-wrap">
-                {/* Like/Dislike Buttons */}
                 <div className="flex items-center rounded-full h-10 bg-yt-light dark:bg-yt-dark-gray">
                     <button onClick={handleLike} className="flex items-center gap-2 pl-4 pr-3 h-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 rounded-l-full transition-colors">
                         {isLiked ? <LikeIconFilled /> : <LikeIcon />}
@@ -121,14 +135,10 @@ const VideoPlayerPage: React.FC = () => {
                         {isDisliked ? <DislikeIconFilled /> : <DislikeIcon />}
                     </button>
                 </div>
-
-                {/* Share Button */}
                 <button className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors text-sm font-semibold">
                     <ShareIcon />
                     <span className="ml-2">共有</span>
                 </button>
-
-                {/* Save Button */}
                 <button 
                   onClick={() => setIsPlaylistModalOpen(true)}
                   className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full px-4 h-10 hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors text-sm font-semibold"
@@ -136,8 +146,6 @@ const VideoPlayerPage: React.FC = () => {
                     <SaveIcon/>
                     <span className="ml-2">保存</span>
                 </button>
-
-                {/* More Button */}
                 <button className="flex items-center justify-center h-10 w-10 bg-yt-light dark:bg-yt-dark-gray rounded-full hover:bg-yt-spec-light-20 dark:hover:bg-yt-spec-20 transition-colors">
                     <MoreIconHorizontal />
                 </button>
@@ -148,19 +156,12 @@ const VideoPlayerPage: React.FC = () => {
             <div onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)} className="cursor-pointer">
               <p className="font-semibold text-sm">{views} • {uploadedAt}</p>
               <div 
-                  className={`text-sm mt-2 whitespace-pre-wrap ${!isDescriptionExpanded ? 'line-clamp-3' : ''} prose prose-sm dark:prose-invert prose-a:text-yt-blue`}
+                  className={`text-sm mt-2 whitespace-pre-wrap ${!isDescriptionExpanded ? 'line-clamp-3' : ''} prose prose-sm dark:prose-invert prose-a:text-yt-blue prose-a:hover:underline`}
                   dangerouslySetInnerHTML={{ __html: description }} 
               />
               <button className="font-semibold text-sm mt-2">
                   {isDescriptionExpanded ? '一部を表示' : '...もっと見る'}
               </button>
-            </div>
-        </div>
-
-        <div className="mt-6">
-            <h2 className="font-bold text-lg mb-4">コメント{comments.length}件</h2>
-            <div className="space-y-4">
-                {comments.map(comment => <Comment key={comment.id} comment={comment} />)}
             </div>
         </div>
       </div>

@@ -19,7 +19,7 @@ const RelatedVideoCard: React.FC<RelatedVideoCardProps> = ({ video }) => {
         )}
       </div>
       <div className="ml-3">
-        <h3 className="text-black dark:text-white text-sm font-semibold leading-snug break-words max-h-10 overflow-hidden">
+        <h3 className="text-black dark:text-white text-sm font-semibold leading-snug break-words max-h-10 overflow-hidden line-clamp-2">
           {video.title}
         </h3>
         <p className="text-yt-light-gray text-xs mt-1">{video.channelName}</p>

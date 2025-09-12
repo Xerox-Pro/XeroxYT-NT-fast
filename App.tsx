@@ -11,6 +11,7 @@ import YouPage from './pages/YouPage';
 import PlaylistPage from './pages/PlaylistPage';
 import ShortsPage from './pages/ShortsPage';
 import SubscriptionsPage from './pages/SubscriptionsPage';
+import HistoryPage from './pages/HistoryPage';
 import { useTheme } from './hooks/useTheme';
 
 const App: React.FC = () => {
@@ -45,6 +46,7 @@ const App: React.FC = () => {
             <Route path="/playlist/:playlistId" element={<PlaylistPage />} />
             <Route path="/shorts" element={<ShortsPage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
+            <Route path="/history" element={<HistoryPage />} />
             {/* Redirect any other path to home */}
             <Route path="*" element={<HomePage />} />
           </Routes>
