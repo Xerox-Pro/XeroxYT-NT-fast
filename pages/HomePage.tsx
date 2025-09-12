@@ -99,7 +99,6 @@ const HomePage: React.FC = () => {
     return (
         <div className="space-y-8">
             <ShortsShelf shorts={shorts} isLoading={isLoadingShorts} />
-            <hr className="border-yt-spec-light-20 dark:border-yt-spec-20" />
             <VideoGrid videos={recommendedVideos} isLoading={isLoadingRecommended} />
         </div>
     );
