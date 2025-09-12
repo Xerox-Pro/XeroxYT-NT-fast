@@ -40,6 +40,8 @@ const ChannelPage: React.FC = () => {
 
     const [isTabLoading, setIsTabLoading] = useState(false);
     const isFetchingRef = useRef(false);
+    // FIX: Pass initial value to useRef to avoid potential "Expected 1 arguments, but got 0" error.
+    const prevChannelIdRef = useRef<string | undefined>(undefined);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
 
@@ -74,7 +76,8 @@ const ChannelPage: React.FC = () => {
                     setVideosPageToken(vData.nextPageToken);
                     break;
                 case 'shorts':
-                    const sData = await searchVideos(`#shorts`, undefined, channelId);
+                    // FIX: Pass pageToken to searchVideos for consistency, even if API does not support pagination for it.
+                    const sData = await searchVideos(`#shorts`, pageToken, channelId);
                     setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
                     setShortsPageToken(sData.nextPageToken);
                     break;
@@ -93,11 +96,25 @@ const ChannelPage: React.FC = () => {
     }, [channelId]);
     
     useEffect(() => {
-        if(channelId) {
-            setVideos([]); setShorts([]); setPlaylists([]);
-            setVideosPageToken(undefined); setShortsPageToken(undefined); setPlaylistsPageToken(undefined);
-            fetchTabData(activeTab);
+        if (!channelId) return;
+
+        // Only reset data if the channel ID has changed.
+        if (prevChannelIdRef.current !== channelId) {
+            setVideos([]);
+            setShorts([]);
+            setPlaylists([]);
+            setVideosPageToken(undefined);
+            setShortsPageToken(undefined);
+            setPlaylistsPageToken(undefined);
         }
+
+        // Fetch data for the current tab. This will fetch page 1 for the new channel,
+        // or page 1 for the new tab without clearing other tabs' content visually.
+        fetchTabData(activeTab);
+
+        // Update the ref for the next render.
+        prevChannelIdRef.current = channelId;
+
     }, [activeTab, channelId, fetchTabData]);
 
 
