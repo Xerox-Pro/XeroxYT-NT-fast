@@ -116,10 +116,7 @@ const mapApiItemToVideo = (item: any, channelAvatars: Record<string, string>): V
 
 // --- EXPORTED API FUNCTIONS ---
 
-export async function getRecommendedVideos(apiKey: string, pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
-  // Use the new search API for recommendations as requested by the user.
-  // Using "プロセカ" as the search term based on the user's sample data.
-  // The pageToken is passed but will be ignored by the new API.
+export async function getRecommendedVideos(pageToken = ''): Promise<{videos: Video[], nextPageToken?: string}> {
   return searchVideos("プロセカ", pageToken);
 }
 
@@ -129,42 +126,47 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
   const url = `${endpoint}?q=${encodeURIComponent(query)}`;
 
   try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
+    const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error('検索サーバーへの接続に失敗しました。ネットワーク環境を確認するか、しばらくしてからもう一度お試しください。');
+        throw new Error(`検索サーバーへの接続に失敗しました (${response.status})`);
     }
 
     const data = await response.json();
-
-    if (!data || !Array.isArray(data.results) || data.results.length === 0) {
-      return { videos: [], nextPageToken: undefined };
+    
+    if (!data || !Array.isArray(data) || data.length === 0) {
+        return { videos: [], nextPageToken: undefined };
     }
     
-    const videos: Video[] = data.results
-    .filter(Boolean) // Add filter to prevent crash on malformed data like [null]
-    .map((item: any): Video => ({
-      id: item.id,
-      thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
-      duration: item.duration || '',
-      isoDuration: '',
-      title: item.title,
-      channelName: item.channel,
-      channelId: item.channelId,
-      channelAvatarUrl: item.channelIcon || '',
-      views: '視聴回数不明',
-      uploadedAt: '',
-    }));
+    const videos: Video[] = data
+        .filter((item: any) => item && item.type === 'Video')
+        .map((item: any): Video => {
+            const bestThumbnail = item.thumbnails?.find((t: any) => t.width === 720) || item.thumbnails?.[0] || { url: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg` };
+            
+            const thumbnailUrl = bestThumbnail.url.startsWith('//') ? `https:${bestThumbnail.url}` : bestThumbnail.url;
+            const channelAvatarUrl = item.author?.thumbnails?.[0]?.url ? (item.author.thumbnails[0].url.startsWith('//') ? `https:${item.author.thumbnails[0].url}` : item.author.thumbnails[0].url) : '';
+
+            return {
+                id: item.id,
+                thumbnailUrl: thumbnailUrl,
+                duration: item.duration?.text || '',
+                isoDuration: item.duration?.seconds ? `PT${item.duration.seconds}S` : '',
+                title: item.title?.text || 'タイトルなし',
+                channelName: item.author?.name || '不明なチャンネル',
+                channelId: item.author?.id || '',
+                channelAvatarUrl: channelAvatarUrl,
+                views: item.short_view_count?.text || item.view_count?.text || '視聴回数不明',
+                uploadedAt: item.published?.text || '',
+            };
+        });
 
     return { videos, nextPageToken: undefined };
   } catch (error) {
     console.error('非公式API検索エラー:', error);
-    throw new Error('検索サーバーへの接続に失敗しました。ネットワーク環境を確認するか、しばらくしてからもう一度お試しください。');
+    if (error instanceof Error) {
+        throw new Error(`検索サーバーへの接続に失敗しました: ${error.message}`);
+    }
+    throw new Error('検索サーバーへの接続中に不明なエラーが発生しました。');
   }
 }
 
