@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { getVideoDetails, getEmbedKey, getVideoComments, getVideosByIds } from '../utils/api';
@@ -75,43 +74,47 @@ const VideoPlayerPage: React.FC = () => {
       setError(null);
       setVideoDetails(null);
       setComments([]);
+      setEmbedKey(null);
 
-      try {
-        const key = await getEmbedKey();
-        setEmbedKey(key);
-      } catch (err: any) {
-        setError(err.message || 'プレーヤーの読み込みに失敗しました。');
-        setIsLoading(false);
-        setIsCommentsLoading(false);
-        return;
-      }
+      // Start all requests in parallel
+      const keyPromise = getEmbedKey();
+      const detailsPromise = getVideoDetails(videoId);
+      const commentsPromise = getVideoComments(videoId);
 
-      const detailsPromise = getVideoDetails(videoId)
-        .then(details => {
-          setVideoDetails(details);
-          if (details) addVideoToHistory(details);
-        })
+      // Handle comments loading independently
+      commentsPromise
+        .then(setComments)
         .catch(err => {
-          const errorMessage = err.message || '動画情報の読み込みに失敗しました。';
-          if (errorMessage.includes('Sign in to confirm you’re not a bot')) {
-            console.warn('Video details failed to load due to login requirement. Displaying video only.');
-          } else {
-            throw err;
-          }
+            console.error("Failed to fetch comments", err);
+            // Comments will be an empty array
+        })
+        .finally(() => {
+            setIsCommentsLoading(false);
         });
 
-      const commentsPromise = getVideoComments(videoId)
-        .then(setComments)
-        .catch(err => console.error("Failed to fetch comments", err));
+      // Handle main content loading (player + details)
+      try {
+        // We need the key to proceed, it's critical.
+        const key = await keyPromise;
+        setEmbedKey(key);
 
-      const [detailsResult] = await Promise.allSettled([detailsPromise, commentsPromise]);
-      
-      if (detailsResult.status === 'rejected') {
-        setError(detailsResult.reason.message || '動画の読み込みに失敗しました。');
+        // Details are not critical, if they fail we still show the player.
+        try {
+            const details = await detailsPromise;
+            setVideoDetails(details);
+            if (details) addVideoToHistory(details);
+        } catch (err) {
+            console.error("Failed to fetch video details:", err);
+            // videoDetails will be null, UI handles it.
+        }
+
+      } catch (err: any) {
+        // This catch is for getEmbedKey failure
+        setError(err.message || 'プレーヤーの読み込みに失敗しました。');
+      } finally {
+        // Once key and details have been attempted, stop the main loading skeleton.
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
-      setIsCommentsLoading(false);
     };
     fetchAllData();
   }, [videoId, addVideoToHistory]);
@@ -132,7 +135,7 @@ const VideoPlayerPage: React.FC = () => {
 
   if (isLoading) return <VideoPlayerPageSkeleton />;
   if (error) return <div className="text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-center">{error}</div>;
-  if (!videoId || !embedKey) return null;
+  if (!videoId || !embedKey) return <div className="text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-center">{error || '動画プレーヤーの読み込みに失敗しました。'}</div>;
 
   const { title, channel, views, uploadedAt, likes, relatedVideos, description, superTitleLinks } = videoDetails || {};
   const subscribed = channel ? isSubscribed(channel.id) : false;
