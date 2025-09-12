@@ -1,7 +1,42 @@
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
 
-// より安定した公開APIインスタンスをバックエンドとして使用します
-const API_BASE_URL = 'https://invidious.projectsegfau.lt/api/v1';
+// 複数の安定した公開APIインスタンスをバックエンドとして使用します
+const INSTANCES = [
+  'https://invidious.projectsegfau.lt',
+  'https://vid.puffyan.us',
+  'https://invidious.kavin.rocks',
+  'https://iv.ggtyler.dev',
+  'https://invidious.io.lol',
+];
+
+let currentInstanceIndex = 0;
+
+// --- CENTRALIZED API FETCHER WITH FALLBACKS ---
+const apiFetch = async (endpoint: string) => {
+  const maxRetries = INSTANCES.length;
+  for (let i = 0; i < maxRetries; i++) {
+    const instanceUrl = INSTANCES[currentInstanceIndex];
+    const fullUrl = `${instanceUrl}/api/v1${endpoint}`;
+    
+    try {
+      // 8秒のタイムアウトを設定
+      const response = await fetch(fullUrl, { signal: AbortSignal.timeout(8000) });
+      if (!response.ok) {
+        console.warn(`Instance ${instanceUrl} failed with status ${response.status}. Trying next...`);
+        throw new Error(`Server error: ${response.status}`);
+      }
+      // 成功！JSONを返却
+      return await response.json();
+    } catch (error) {
+      console.error(`Fetch from ${instanceUrl} failed.`, error);
+      // 次のインスタンスへ
+      currentInstanceIndex = (currentInstanceIndex + 1) % INSTANCES.length;
+    }
+  }
+  // すべてのインスタンスが失敗した場合
+  throw new Error('すべてのAPIサーバーにアクセスできませんでした。時間をおいて再度お試しください。');
+};
+
 
 // --- HELPER FUNCTIONS ---
 
@@ -43,18 +78,6 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
   if (interval > 1) return `${Math.floor(interval)}分前`;
   return `${Math.floor(seconds)}秒前`;
 };
-
-// --- CENTRALIZED API FETCHER ---
-
-const apiFetch = async (endpoint: string) => {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`);
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || 'サーバーにアクセスできませんでした。');
-  }
-  return response.json();
-};
-
 
 // --- DATA MAPPING HELPERS ---
 
