@@ -29,9 +29,12 @@ export interface Comment {
   id: string;
   author: string;
   authorAvatarUrl: string;
+  authorChannelId: string;
   publishedAt: string;
   text: string;
   likes: string;
+  replyCount: string;
+  isPinned: boolean;
 }
 
 export interface SuperTitleLink {

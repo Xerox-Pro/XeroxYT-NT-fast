@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist, ChannelBadge, SuperTitleLink } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -217,7 +216,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-    const url = `https://xeroxapp60.vercel.app/api/video?id=${videoId}`;
+    const url = `https://siawaseok.duckdns.org/api/video/${videoId}`;
     const data = await proxiedFetch(url);
 
     if (data.playability_status?.status === 'LOGIN_REQUIRED') {
@@ -230,6 +229,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 
     const primary = data.primary_info;
     const secondary = data.secondary_info;
+    const basic = data.basic_info;
     const owner = secondary.owner?.author;
 
     const badges: ChannelBadge[] = (owner?.badges || []).map((badge: any) => ({
@@ -238,7 +238,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     })).filter((b: any) => b.type && b.tooltip);
 
     const channel: Channel = {
-        id: owner?.id || '', name: owner?.name || '不明なチャンネル',
+        id: owner?.id || basic.channel.id || '', 
+        name: owner?.name || basic.channel.name ||'不明なチャンネル',
         avatarUrl: owner?.thumbnails?.find((t: any) => t.width > 80)?.url || owner?.thumbnails?.[0]?.url || '',
         subscriberCount: secondary.owner?.subscriber_count?.text || '',
         badges,
@@ -271,21 +272,41 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
             };
         }).filter((v): v is Video => v !== null);
     
-    // The main video's duration is not in the main object, find it in the player overlays if possible.
-    const endScreenSelf = data.player_overlays?.end_screen?.results?.find((r:any) => r.id === videoId);
-    const mainVideoDuration = endScreenSelf?.duration?.text || '';
-    const mainVideoIsoDuration = endScreenSelf?.duration?.seconds ? `PT${endScreenSelf.duration.seconds}S` : '';
-
     return {
         id: videoId, thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        duration: mainVideoDuration, isoDuration: mainVideoIsoDuration,
-        title: primary.title.text, channelName: channel.name, channelId: channel.id,
-        channelAvatarUrl: channel.avatarUrl, views: primary.view_count.text,
-        uploadedAt: primary.relative_date.text, description: parseDescriptionRuns(secondary.description.runs),
-        likes: formatNumber(data.basic_info.like_count), dislikes: '0',
-        channel: channel, relatedVideos: relatedVideos, comments: [], // Comments are not available
+        duration: formatDuration(basic.duration), isoDuration: `PT${basic.duration}S`,
+        title: primary.title.text || basic.title, channelName: channel.name, channelId: channel.id,
+        channelAvatarUrl: channel.avatarUrl, views: primary.view_count.text || formatNumber(basic.view_count),
+        uploadedAt: primary.relative_date.text, description: parseDescriptionRuns(secondary.description.runs) || basic.short_description,
+        likes: formatNumber(basic.like_count), dislikes: '0',
+        channel: channel, relatedVideos: relatedVideos, comments: [], // Comments are fetched separately
         superTitleLinks: superTitleLinks,
     };
+}
+
+export async function getVideoComments(videoId: string): Promise<Comment[]> {
+    const url = `https://xeroxapp60.vercel.app/api/comments?id=${videoId}`;
+    try {
+        const data = await proxiedFetch(url);
+        if (!data.comments || !Array.isArray(data.comments)) {
+            console.warn(`No comments found or invalid format for video ${videoId}`);
+            return [];
+        }
+        return data.comments.map((item: any): Comment => ({
+            id: item.comment_id,
+            text: item.text,
+            publishedAt: item.published_time,
+            author: item.author.name,
+            authorAvatarUrl: item.author.thumbnails?.[0]?.url,
+            authorChannelId: item.author.id,
+            likes: item.like_count?.toString().trim() || '0',
+            replyCount: item.reply_count,
+            isPinned: item.is_pinned,
+        }));
+    } catch (error) {
+        console.error(`Failed to fetch comments for video ${videoId}`, error);
+        return [];
+    }
 }
 
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {

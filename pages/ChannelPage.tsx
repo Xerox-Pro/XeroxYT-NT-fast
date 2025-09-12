@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos } from '../utils/api';
-import type { ChannelDetails, Video, ApiPlaylist } from '../types';
+import type { ChannelDetails, Video, ApiPlaylist, Channel } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -34,13 +34,12 @@ const ChannelPage: React.FC = () => {
     const [shorts, setShorts] = useState<Video[]>([]);
     const [playlists, setPlaylists] = useState<ApiPlaylist[]>([]);
 
-    const [videosPageToken, setVideosPageToken] = useState<string | undefined>();
-    const [shortsPageToken, setShortsPageToken] = useState<string | undefined>();
-    const [playlistsPageToken, setPlaylistsPageToken] = useState<string | undefined>();
+    const [videosPageToken, setVideosPageToken] = useState<string | undefined>(undefined);
+    const [shortsPageToken, setShortsPageToken] = useState<string | undefined>(undefined);
+    const [playlistsPageToken, setPlaylistsPageToken] = useState<string | undefined>(undefined);
 
     const [isTabLoading, setIsTabLoading] = useState(false);
     const isFetchingRef = useRef(false);
-    // FIX: Pass initial value to useRef to avoid potential "Expected 1 arguments, but got 0" error.
     const prevChannelIdRef = useRef<string | undefined>(undefined);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
@@ -76,7 +75,6 @@ const ChannelPage: React.FC = () => {
                     setVideosPageToken(vData.nextPageToken);
                     break;
                 case 'shorts':
-                    // FIX: Pass pageToken to searchVideos for consistency, even if API does not support pagination for it.
                     const sData = await searchVideos(`#shorts`, pageToken, channelId);
                     setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
                     setShortsPageToken(sData.nextPageToken);
@@ -98,7 +96,6 @@ const ChannelPage: React.FC = () => {
     useEffect(() => {
         if (!channelId) return;
 
-        // Only reset data if the channel ID has changed.
         if (prevChannelIdRef.current !== channelId) {
             setVideos([]);
             setShorts([]);
@@ -108,11 +105,8 @@ const ChannelPage: React.FC = () => {
             setPlaylistsPageToken(undefined);
         }
 
-        // Fetch data for the current tab. This will fetch page 1 for the new channel,
-        // or page 1 for the new tab without clearing other tabs' content visually.
         fetchTabData(activeTab);
 
-        // Update the ref for the next render.
         prevChannelIdRef.current = channelId;
 
     }, [activeTab, channelId, fetchTabData]);
@@ -133,7 +127,22 @@ const ChannelPage: React.FC = () => {
     if (!channelDetails) return null;
 
     const subscribed = isSubscribed(channelDetails.id);
-    const handleSubscription = () => subscribed ? unsubscribe(channelDetails.id) : subscribe(channelDetails);
+    const handleSubscriptionToggle = () => {
+        if (!channelDetails.avatarUrl) return;
+
+        const channel: Channel = {
+            id: channelDetails.id,
+            name: channelDetails.name,
+            avatarUrl: channelDetails.avatarUrl,
+            subscriberCount: channelDetails.subscriberCount
+        };
+
+        if (subscribed) {
+            unsubscribe(channel.id);
+        } else {
+            subscribe(channel);
+        }
+    };
 
     const TabButton: React.FC<{tab: Tab, label: string}> = ({tab, label}) => (
         <button 
@@ -167,8 +176,8 @@ const ChannelPage: React.FC = () => {
                     )}
                 </div>
                  <button 
-                  onClick={handleSubscription}
-                  className={`mt-4 sm:mt-0 font-semibold px-4 h-10 rounded-full text-sm hover:opacity-90 flex items-center transform transition-transform duration-150 active:scale-95 ${subscribed ? 'bg-yt-light dark:bg-yt-dark-gray text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black'}`}
+                  onClick={handleSubscriptionToggle}
+                  className={`mt-4 sm:mt-0 font-semibold px-4 h-10 rounded-full text-sm flex items-center transform transition-transform duration-150 active:scale-95 ${subscribed ? 'bg-yt-light dark:bg-yt-dark-gray text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black hover:opacity-90'}`}
                 >
                   {subscribed ? '登録済み' : 'チャンネル登録'}
                 </button>

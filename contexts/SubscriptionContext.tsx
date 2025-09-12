@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import type { Channel } from '../types';
 
@@ -11,14 +10,29 @@ interface SubscriptionContextType {
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
+// Hardcoded default channel that cannot be unsubscribed
+const FORCED_SUBSCRIPTION_CHANNEL: Channel = {
+    id: 'UCCMV3NfZk_NB-MmUvHj6aFw', // This is AZKi's Channel ID
+    name: 'AZKi Channel',
+    avatarUrl: 'https://yt3.ggpht.com/b-LyLgA8IAo6PcG52Lg-GkBi1uP5y5vj2_cTR_Q2Yh5Ie94ImALB0m_29z1NO4e8-8yD8a_l=s176-c-k-c0x00ffffff-no-rj-mo',
+    subscriberCount: '' // This can be empty as it's not used in the subscription list itself
+};
+
 export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [subscribedChannels, setSubscribedChannels] = useState<Channel[]>(() => {
     try {
       const item = window.localStorage.getItem('subscribedChannels');
-      return item ? JSON.parse(item) : [];
+      const existingChannels = item ? JSON.parse(item) : [];
+      // Ensure the default channel is always present and at the top
+      const hasForcedChannel = existingChannels.some((c: Channel) => c.id === FORCED_SUBSCRIPTION_CHANNEL.id);
+      if (!hasForcedChannel) {
+        return [FORCED_SUBSCRIPTION_CHANNEL, ...existingChannels];
+      }
+      return [FORCED_SUBSCRIPTION_CHANNEL, ...existingChannels.filter((c: Channel) => c.id !== FORCED_SUBSCRIPTION_CHANNEL.id)];
+
     } catch (error) {
       console.error(error);
-      return [];
+      return [FORCED_SUBSCRIPTION_CHANNEL];
     }
   });
 
@@ -40,6 +54,10 @@ export const SubscriptionProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const unsubscribe = (channelId: string) => {
+    if (channelId === FORCED_SUBSCRIPTION_CHANNEL.id) {
+        alert("このチャンネルは登録解除できません。");
+        return;
+    }
     setSubscribedChannels(prev => prev.filter(c => c.id !== channelId));
   };
 
