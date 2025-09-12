@@ -1,5 +1,3 @@
-
-
 export interface Video {
   id: string;
   thumbnailUrl: string;
@@ -14,27 +12,31 @@ export interface Video {
   descriptionSnippet?: string;
 }
 
+export interface ChannelBadge {
+    type: string;
+    tooltip: string;
+}
+
 export interface Channel {
-  id:string;
+  id: string;
   name: string;
   avatarUrl: string;
   subscriberCount: string;
-}
-
-export interface ChannelDetails extends Channel {
-    bannerUrl?: string;
-    description?: string;
-    videoCount?: number;
-    handle?: string;
+  badges?: ChannelBadge[];
 }
 
 export interface Comment {
   id: string;
   author: string;
   authorAvatarUrl: string;
+  publishedAt: string;
   text: string;
   likes: string;
-  publishedAt: string;
+}
+
+export interface SuperTitleLink {
+    text: string;
+    url: string;
 }
 
 export interface VideoDetails extends Video {
@@ -44,6 +46,25 @@ export interface VideoDetails extends Video {
   channel: Channel;
   relatedVideos: Video[];
   comments: Comment[];
+  superTitleLinks?: SuperTitleLink[];
+}
+
+export interface ChannelDetails {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+  subscriberCount: string;
+  bannerUrl?: string;
+  description: string;
+  videoCount: number;
+  handle?: string;
+}
+
+export interface ApiPlaylist {
+  id: string;
+  title: string;
+  thumbnailUrl?: string;
+  videoCount: number;
 }
 
 export interface Playlist {
@@ -53,12 +74,8 @@ export interface Playlist {
   createdAt: string;
 }
 
-export interface PlaylistVideo extends Video {
-  addedAt: string;
-}
-
 export interface Notification {
-  id: string; // videoId
+  id: string;
   channel: {
     id: string;
     name: string;
@@ -70,11 +87,4 @@ export interface Notification {
     thumbnailUrl: string;
   };
   publishedAt: string;
-}
-
-export interface ApiPlaylist {
-  id: string;
-  title: string;
-  thumbnailUrl?: string;
-  videoCount: number;
 }

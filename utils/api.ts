@@ -1,5 +1,5 @@
 
-import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist } from '../types';
+import type { Video, VideoDetails, Channel, Comment, ChannelDetails, ApiPlaylist, ChannelBadge, SuperTitleLink } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
 const INSTANCES = [
@@ -48,21 +48,37 @@ const apiFetch = async (endpoint: string) => {
 };
 
 // --- NEW EMBED KEY FETCHER ---
-let embedKeyCache: string | null = null;
+interface EmbedKeyCache {
+    key: string;
+    timestamp: number;
+}
+let embedKeyCache: EmbedKeyCache | null = null;
+const CACHE_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours to refresh 3 times a day
+
 export const getEmbedKey = async (): Promise<string> => {
-    if (embedKeyCache) {
-        return embedKeyCache;
+    const now = Date.now();
+    if (embedKeyCache && (now - embedKeyCache.timestamp < CACHE_DURATION_MS)) {
+        return embedKeyCache.key;
     }
+    
+    console.log('Fetching new embed key. Cache was stale or empty.');
     try {
         const configUrl = 'https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json';
         const data = await proxiedFetch(configUrl);
         if (typeof data.params === 'string') {
-            embedKeyCache = data.params;
-            return embedKeyCache;
+            embedKeyCache = {
+                key: data.params,
+                timestamp: now,
+            };
+            return embedKeyCache.key;
         }
         throw new Error('Invalid video_config.json format');
     } catch (error) {
         console.error("Failed to fetch embed key:", error);
+        if (embedKeyCache) {
+            console.warn("Returning stale embed key due to fetch failure.");
+            return embedKeyCache.key;
+        }
         throw new Error('動画プレーヤーの設定の読み込みに失敗しました。');
     }
 };
@@ -216,15 +232,33 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     const secondary = data.secondary_info;
     const owner = secondary.owner?.author;
 
+    const badges: ChannelBadge[] = (owner?.badges || []).map((badge: any) => ({
+        type: badge.icon_type,
+        tooltip: badge.tooltip,
+    })).filter((b: any) => b.type && b.tooltip);
+
     const channel: Channel = {
         id: owner?.id || '', name: owner?.name || '不明なチャンネル',
         avatarUrl: owner?.thumbnails?.find((t: any) => t.width > 80)?.url || owner?.thumbnails?.[0]?.url || '',
         subscriberCount: secondary.owner?.subscriber_count?.text || '',
+        badges,
     };
 
+    const superTitleLinks: SuperTitleLink[] = (primary.super_title_link?.runs || [])
+        .map((run: any) => {
+            if (run.text && run.text.trim().startsWith('#')) {
+                return {
+                    text: run.text.trim(),
+                    url: `/results?search_query=${encodeURIComponent(run.text.trim())}`
+                };
+            }
+            return null;
+        })
+        .filter((l): l is SuperTitleLink => l !== null);
+
     const relatedVideos: Video[] = (data.watch_next_feed || [])
+        .filter((item: any) => item.type === 'LockupView' && item.content_type === 'VIDEO' && item.content_id)
         .map((item: any): Video | null => {
-            if (item.type !== 'LockupView' || !item.content_id) return null;
             const metadata = item.metadata?.metadata;
             const endScreenData = data.player_overlays?.end_screen?.results?.find((r:any) => r.id === item.content_id);
             return {
@@ -249,7 +283,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         channelAvatarUrl: channel.avatarUrl, views: primary.view_count.text,
         uploadedAt: primary.relative_date.text, description: parseDescriptionRuns(secondary.description.runs),
         likes: formatNumber(data.basic_info.like_count), dislikes: '0',
-        channel: channel, relatedVideos: relatedVideos, comments: [] // Comments are not available
+        channel: channel, relatedVideos: relatedVideos, comments: [], // Comments are not available
+        superTitleLinks: superTitleLinks,
     };
 }
 

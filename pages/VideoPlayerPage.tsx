@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { getVideoDetails, getEmbedKey } from '../utils/api';
@@ -6,7 +5,7 @@ import type { VideoDetails } from '../types';
 import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkeleton';
 import RelatedVideoCard from '../components/RelatedVideoCard';
 import PlaylistModal from '../components/PlaylistModal';
-import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, DislikeIconFilled } from '../components/icons/Icons';
+import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon, MoreIconHorizontal, LikeIconFilled, DislikeIconFilled, MusicNoteIcon } from '../components/icons/Icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
 
@@ -64,7 +63,7 @@ const VideoPlayerPage: React.FC = () => {
   if (error) return <div className="text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg text-center">{error}</div>;
   if (!videoDetails || !embedKey) return null;
 
-  const { title, channel, views, uploadedAt, likes, relatedVideos, description } = videoDetails;
+  const { title, channel, views, uploadedAt, likes, relatedVideos, description, superTitleLinks } = videoDetails;
   const subscribed = isSubscribed(channel.id);
 
   const handleSubscription = () => {
@@ -106,6 +105,13 @@ const VideoPlayerPage: React.FC = () => {
           ></iframe>
         </div>
         
+        {superTitleLinks && superTitleLinks.length > 0 && (
+            <div className="mb-2 text-sm text-yt-blue flex items-center gap-x-2">
+                {superTitleLinks.map((link, index) => (
+                    <Link key={index} to={link.url} className="hover:underline">{link.text}</Link>
+                ))}
+            </div>
+        )}
         <h1 className="text-2xl font-bold mb-3">{title}</h1>
 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
@@ -114,7 +120,16 @@ const VideoPlayerPage: React.FC = () => {
                   <img src={channel.avatarUrl} alt={channel.name} className="w-10 h-10 rounded-full" />
                 </Link>
                 <div className="ml-3">
-                    <Link to={`/channel/${channel.id}`} className="font-semibold">{channel.name}</Link>
+                    <Link to={`/channel/${channel.id}`} className="font-semibold flex items-center gap-1.5">
+                        {channel.name}
+                        {channel.badges?.map((badge, i) => (
+                            badge.type === 'AUDIO_BADGE' && (
+                                <span key={i} title={badge.tooltip}>
+                                    <MusicNoteIcon className="fill-current text-yt-icon dark:text-yt-light-gray" />
+                                </span>
+                            )
+                        ))}
+                    </Link>
                     <p className="text-sm text-yt-light-gray">{channel.subscriberCount}</p>
                 </div>
                 <button 
