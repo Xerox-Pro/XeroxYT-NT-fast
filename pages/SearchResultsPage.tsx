@@ -42,7 +42,7 @@ const SearchResultsPage: React.FC = () => {
             setVideos(prev => token ? [...prev, ...newVideos] : newVideos);
             setNextPageToken(nextToken);
         } catch (err: any) {
-            setError(err.message || '検索の実行に失敗しました。');
+            setError(err.toString());
             console.error(err);
         } finally {
             token ? setIsLoadingMore(false) : setIsLoading(false);

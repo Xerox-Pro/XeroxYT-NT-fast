@@ -163,10 +163,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
     return { videos, nextPageToken: undefined };
   } catch (error) {
     console.error('非公式API検索エラー:', error);
-    if (error instanceof Error) {
-        throw new Error(`検索サーバーへの接続に失敗しました: ${error.message}`);
-    }
-    throw new Error('検索サーバーへの接続中に不明なエラーが発生しました。');
+    throw error;
   }
 }
 
