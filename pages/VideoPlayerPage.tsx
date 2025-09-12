@@ -66,53 +66,57 @@ const VideoPlayerPage: React.FC = () => {
     window.scrollTo(0, 0);
 
     const fetchAllData = async () => {
-      if (!videoId) {
-        setError("動画IDが見つかりません。");
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setIsCommentsLoading(true);
-      setError(null);
-      setVideoDetails(null);
-      setComments([]);
-      setEmbedKey(null);
-      setVideoDetailsError(null);
-      setCommentsError(null);
-
-      const keyPromise = getEmbedKey();
-      const detailsPromise = getVideoDetails(videoId);
-      const commentsPromise = getVideoComments(videoId);
-
-      commentsPromise
-        .then(setComments)
-        .catch(err => {
-            console.error("Failed to fetch comments", err);
-            setCommentsError("コメントの読み込みに失敗しました。");
-        })
-        .finally(() => {
-            setIsCommentsLoading(false);
-        });
-
-      try {
-        const key = await keyPromise;
-        setEmbedKey(key);
-
-        try {
-            const details = await detailsPromise;
-            setVideoDetails(details);
-            if (details) addVideoToHistory(details);
-        } catch (err: any) {
-            console.error("Failed to fetch video details:", err);
-            setVideoDetailsError(err.message || "動画情報の取得に失敗しました。");
+        if (!videoId) {
+            setError("動画IDが見つかりません。");
+            setIsLoading(false);
+            return;
         }
 
-      } catch (err: any) {
-        setError(err.message || 'プレーヤーの読み込みに失敗しました。');
-      } finally {
+        setIsLoading(true);
+        setIsCommentsLoading(true);
+        setError(null);
+        setVideoDetailsError(null);
+        setCommentsError(null);
+        setVideoDetails(null);
+        setComments([]);
+        setEmbedKey(null);
+
+        const [keyResult, detailsResult, commentsResult] = await Promise.allSettled([
+            getEmbedKey(),
+            getVideoDetails(videoId),
+            getVideoComments(videoId),
+        ]);
+
+        if (keyResult.status === 'fulfilled') {
+            setEmbedKey(keyResult.value);
+        } else {
+            console.error("Failed to fetch embed key:", keyResult.reason);
+            const reason = keyResult.reason as Error;
+            setError(reason.message || 'プレーヤーの読み込みに失敗しました。');
+        }
+
+        if (detailsResult.status === 'fulfilled') {
+            setVideoDetails(detailsResult.value);
+            if (detailsResult.value) {
+                addVideoToHistory(detailsResult.value);
+            }
+        } else {
+            console.error("Failed to fetch video details:", detailsResult.reason);
+            const reason = detailsResult.reason as Error;
+            setVideoDetailsError(reason.message || "動画情報の取得に失敗しました。");
+        }
+
+        if (commentsResult.status === 'fulfilled') {
+            setComments(commentsResult.value);
+        } else {
+            console.error("Failed to fetch comments:", commentsResult.reason);
+            setCommentsError("コメントの読み込みに失敗しました。");
+        }
+
         setIsLoading(false);
-      }
+        setIsCommentsLoading(false);
     };
+
     fetchAllData();
   }, [videoId, addVideoToHistory]);
 
@@ -257,7 +261,7 @@ const VideoPlayerPage: React.FC = () => {
                     ? 'コメントを読み込み中...' 
                     : commentsError
                     ? 'コメント'
-                    : `${comments.length}件のコメント`}
+                    : `${comments.length.toLocaleString()}件のコメント`}
             </h2>
             {commentsError ? (
                 <div className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 p-3 rounded-lg">
