@@ -126,7 +126,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
     const response = await fetch(url);
     if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+        throw new Error(errorText);
     }
     const data = await response.json();
     if (!Array.isArray(data)) {

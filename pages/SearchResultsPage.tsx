@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { searchVideos } from '../utils/api';
@@ -22,7 +23,7 @@ const SearchResultsPage: React.FC = () => {
             const { videos: newVideos } = await searchVideos(searchQuery);
             setVideos(newVideos);
         } catch (err: any) {
-            setError(err.toString());
+            setError(err.message);
             console.error(err);
         } finally {
             setIsLoading(false);
