@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getVideoDetails, getEmbedUrlKey } from '../utils/api';
+import { getVideoDetails } from '../utils/api';
 import type { VideoDetails, Video } from '../types';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
@@ -16,7 +16,6 @@ const VideoPlayerPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
-    const [embedUrl, setEmbedUrl] = useState<string>('');
 
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
     const { addVideoToHistory } = useHistory();
@@ -44,21 +43,6 @@ const VideoPlayerPage: React.FC = () => {
         fetchDetails();
     }, [videoId, addVideoToHistory]);
 
-    useEffect(() => {
-        const constructEmbedUrl = async (id: string) => {
-            try {
-                const key = await getEmbedUrlKey();
-                setEmbedUrl(`https://www.youtubeeducation.com/embed/${id}${key}`);
-            } catch {
-                setEmbedUrl(`https://www.youtube.com/embed/${id}?autoplay=1&rel=0`);
-            }
-        };
-
-        if (videoId) {
-            constructEmbedUrl(videoId);
-        }
-    }, [videoId]);
-
     if (isLoading) {
         return <VideoPlayerPageSkeleton />;
     }
@@ -68,9 +52,9 @@ const VideoPlayerPage: React.FC = () => {
             <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-grow lg:w-2/3">
                     <div className="aspect-video bg-yt-black rounded-xl overflow-hidden">
-                        {videoId && embedUrl && (
+                        {videoId && (
                              <iframe
-                                src={embedUrl}
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
                                 title="YouTube video player"
                                 frameBorder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -125,16 +109,14 @@ const VideoPlayerPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-6">
             <div className="flex-grow lg:w-2/3">
                 <div className="aspect-video bg-yt-black rounded-xl overflow-hidden">
-                     {embedUrl && (
-                        <iframe
-                            src={embedUrl}
-                            title={videoDetails.title}
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                            className="w-full h-full"
-                        ></iframe>
-                    )}
+                     <iframe
+                        src={`https://www.youtube.com/embed/${videoDetails.id}?autoplay=1&rel=0`}
+                        title={videoDetails.title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                    ></iframe>
                 </div>
 
                 <h1 className="text-xl font-bold mt-4">{videoDetails.title}</h1>
