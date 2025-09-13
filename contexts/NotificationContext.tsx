@@ -67,6 +67,7 @@ export const NotificationProvider: React.FC<{ children: ReactNode }> = ({ childr
                                 id: video.id,
                                 title: video.title,
                                 thumbnailUrl: video.thumbnailUrl,
+                                uploadedAt: video.uploadedAt,
                             },
                             // The proxy doesn't provide reliable ISO dates, so we use current time for sorting.
                             // The `formatTimeAgo` will show the video's original upload time text.

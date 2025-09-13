@@ -70,6 +70,7 @@ export interface Notification {
     id: string;
     title: string;
     thumbnailUrl: string;
+    uploadedAt: string;
   };
   publishedAt: string;
 }

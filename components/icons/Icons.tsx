@@ -87,7 +87,7 @@ export const LikeIconFilled: React.FC = () => (
 
 export const DislikeIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
-        <path d="M17,4h-1H8H4v10h3v-1.6l5.6-6.06C12.79,6.12,13.08,6,13.38,6c0.26,0,0.5,0.11,0.63,0.3c0.11,0.15,0.15,0.34,0.09,0.51 l-1.52,4.94L11.66,13h1.35h4.23c0.41,0,0.8,0.17,1.03,0.46C18.42,13.61,18.55,13.86,18.48,14.17l-1.34,6 C17.04,20.65,16.53,21,15.93,21H8V11H4.57c-1.06,0-1.98-0.67-2.19-1.61l-1.34-6C0.77,2.85,1.82,2,3.23,2H9.8 c0.58,0,1.14,0.24,1.52,0.65L17,8.29V4z M20,2v10h3V2H20z"></path>
+        <path d="M3 14.27V21h4V12.5L3 13.27zM15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm0 12H8.69l1.15-5.41L15 5v10zM19 3v12h4V3h-4z"></path>
     </svg>
 );
 
@@ -100,7 +100,7 @@ export const DislikeIconFilled: React.FC = () => (
 
 export const ShareIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
-        <path d="M15,13V9.56l7,7.02l-7,7.02V19.5h-1c-5.34,0-9.95-2.92-12-7.5c2.09,4.45,6.58,7.5,12,7.5h1V21l7-7.02l-7-7.02V9h-1 C9.86,9,11.85,10.63,15,13z"></path>
+        <path d="M13 3.03v2.32c-5.12.5-9 4.77-9 9.65 0 2.16.84 4.14 2.22 5.66 1.93-3.14 5.24-5.22 9.28-5.22v2.32L21 12l-8-8.97z"></path>
     </svg>
 );
 
@@ -172,7 +172,7 @@ export const SettingsIcon: React.FC = () => (
 
 export const CommentIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className="fill-current text-white">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"></path>
+        <path d="M21.99 4c0-1.1-.89-2-1.99-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18zM20 4v12H5.17L4 17.17V4h16z"></path>
     </svg>
 );
 
