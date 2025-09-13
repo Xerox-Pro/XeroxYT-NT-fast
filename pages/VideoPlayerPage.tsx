@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getVideoDetails } from '../utils/api';
@@ -48,8 +47,36 @@ const VideoPlayerPage: React.FC = () => {
         return <VideoPlayerPageSkeleton />;
     }
 
-    if (error) {
-        return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
+    if (error && !videoDetails) {
+        return (
+            <div className="flex flex-col lg:flex-row gap-6">
+                <div className="flex-grow lg:w-2/3">
+                    <div className="aspect-video bg-yt-black rounded-xl overflow-hidden">
+                        {videoId && (
+                             <iframe
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+                                title="YouTube video player"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                className="w-full h-full"
+                            ></iframe>
+                        )}
+                    </div>
+    
+                    <div className="mt-4 p-4 rounded-lg bg-red-100 dark:bg-red-900/50 text-black dark:text-yt-white">
+                        <h2 className="text-lg font-bold mb-2 text-red-500">動画情報の取得エラー</h2>
+                        <p>{error}</p>
+                    </div>
+                </div>
+                
+                <div className="lg:w-1/3 lg:max-w-sm flex-shrink-0">
+                    <div className="bg-yt-light dark:bg-yt-dark-gray p-4 rounded-xl text-center">
+                        <p className="font-semibold">関連動画の読み込みに失敗しました。</p>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     if (!videoDetails) {

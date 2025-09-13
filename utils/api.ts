@@ -1,4 +1,3 @@
-
 import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, ChannelBadge } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -158,17 +157,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     const url = `https://siawaseok.duckdns.org/api/video/${videoId}`;
     try {
-        const response = await fetch(url, { signal: AbortSignal.timeout(30000) });
-        let data;
-        try {
-            data = await response.json();
-        } catch (e) {
-             const text = await response.text();
-             throw new Error(`Invalid JSON response from direct fetch. Status: ${response.status}. Body: ${text}`);
-        }
-        if (!response.ok) {
-            throw new Error(data.error || `Request failed: ${response.status}`);
-        }
+        const data = await proxiedFetch(url);
 
         if (!data || !data.videoId) {
             if (data && data.error) {
