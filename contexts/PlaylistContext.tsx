@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 interface PlaylistContextType {
   playlists: Playlist[];
-  createPlaylist: (name: string, videoIds?: string[]) => void;
+  createPlaylist: (name: string, videoIds?: string[], authorName?: string, authorId?: string) => void;
   renamePlaylist: (playlistId: string, newName: string) => void;
   deletePlaylist: (playlistId: string) => void;
   addVideoToPlaylist: (playlistId: string, videoId: string) => void;
@@ -35,12 +35,14 @@ export const PlaylistProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [playlists]);
 
-  const createPlaylist = (name: string, videoIds: string[] = []) => {
+  const createPlaylist = (name: string, videoIds: string[] = [], authorName?: string, authorId?: string) => {
     const newPlaylist: Playlist = {
       id: uuidv4(),
       name,
       videoIds: videoIds,
       createdAt: new Date().toISOString(),
+      authorName: authorName || 'あなた',
+      authorId: authorId,
     };
     setPlaylists(prev => [newPlaylist, ...prev]);
   };
@@ -110,5 +112,3 @@ export const usePlaylist = (): PlaylistContextType => {
   }
   return context;
 };
-
-// FIX: Removed local uuidv4 function to resolve conflict with imported library.

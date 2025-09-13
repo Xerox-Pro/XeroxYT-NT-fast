@@ -34,7 +34,7 @@ export interface VideoDetails extends Video {
 }
 
 export interface ChannelDetails {
-  id: string;
+  id:string;
   name: string;
   avatarUrl?: string;
   subscriberCount: string;
@@ -66,6 +66,8 @@ export interface Playlist {
   name: string;
   videoIds: string[];
   createdAt: string;
+  authorName?: string;
+  authorId?: string;
 }
 
 export interface Notification {

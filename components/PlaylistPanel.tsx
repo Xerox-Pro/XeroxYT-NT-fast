@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import type { Playlist, Video } from '../types';
-import { ShuffleIcon, RepeatIcon } from './icons/Icons';
+import { ShuffleIcon, RepeatIcon, DragHandleIcon } from './icons/Icons';
 
 interface PlaylistPanelProps {
   playlist: Playlist;
@@ -12,25 +12,34 @@ interface PlaylistPanelProps {
   toggleShuffle: () => void;
   toggleLoop: () => void;
   onReorder: (startIndex: number, endIndex: number) => void;
+  authorName?: string;
 }
 
-const PlaylistPanel: React.FC<PlaylistPanelProps> = ({ playlist, videos, currentVideoId, isShuffle, isLoop, toggleShuffle, toggleLoop, onReorder }) => {
+const PlaylistPanel: React.FC<PlaylistPanelProps> = ({ playlist, videos, currentVideoId, isShuffle, isLoop, toggleShuffle, toggleLoop, onReorder, authorName }) => {
   const currentIndex = videos.findIndex(v => v.id === currentVideoId);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+  const [searchParams] = useSearchParams();
 
   const handleDragSort = () => {
-    if (dragItem.current === null || dragOverItem.current === null) return;
+    if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) return;
     onReorder(dragItem.current, dragOverItem.current);
     dragItem.current = null;
     dragOverItem.current = null;
   };
+  
+  const getWatchUrl = (videoId: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('list', playlist.id);
+    return `/watch/${videoId}?${newParams.toString()}`;
+  }
 
   return (
     <div className="bg-yt-light dark:bg-yt-dark-gray rounded-xl overflow-hidden flex flex-col h-[calc(100vh-8rem)]">
       <div className="p-4 border-b border-yt-spec-light-20 dark:border-yt-spec-20">
         <h2 className="text-xl font-bold truncate">{playlist.name}</h2>
-        <p className="text-sm text-yt-light-gray">{`動画 ${currentIndex >= 0 ? currentIndex + 1 : '-'} / ${videos.length}`}</p>
+        <p className="text-sm text-yt-light-gray">{authorName}</p>
+        <p className="text-sm text-yt-light-gray mt-1">{`動画 ${currentIndex >= 0 ? currentIndex + 1 : '-'} / ${videos.length}`}</p>
         <div className="flex items-center gap-2 mt-2">
             <button
                 onClick={toggleShuffle}
@@ -52,20 +61,23 @@ const PlaylistPanel: React.FC<PlaylistPanelProps> = ({ playlist, videos, current
         {videos.map((video, index) => (
           <div
             key={`${video.id}-${index}`}
-            className={`flex items-center gap-3 p-2 group cursor-grab ${video.id === currentVideoId ? 'bg-yt-spec-light-20 dark:bg-yt-spec-20' : 'hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10'}`}
+            className={`flex items-center group relative ${video.id === currentVideoId ? 'bg-yt-spec-light-20 dark:bg-yt-spec-20' : 'hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10'}`}
             draggable
             onDragStart={() => dragItem.current = index}
             onDragEnter={() => dragOverItem.current = index}
             onDragEnd={handleDragSort}
             onDragOver={(e) => e.preventDefault()}
           >
-            <span className="text-yt-light-gray text-sm w-6 text-center">{index + 1}</span>
+            {video.id === currentVideoId && <div className="absolute left-0 top-0 h-full w-1 bg-yt-red rounded-r-full"></div>}
+            <div className="flex items-center text-yt-light-gray px-2">
+                 <div className="cursor-grab opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DragHandleIcon />
+                </div>
+            </div>
             <Link
-              to={`/watch/${video.id}?list=${playlist.id}`}
-              className="flex-1 flex items-center gap-3"
+              to={getWatchUrl(video.id)}
+              className="flex-1 flex items-center gap-3 py-1 pr-2"
               draggable={false}
-              onClick={e => e.preventDefault()}
-              onDoubleClick={() => window.location.href = `/watch/${video.id}?list=${playlist.id}`}
             >
                 <div className="relative w-24 flex-shrink-0">
                     <img src={video.thumbnailUrl} alt={video.title} className="w-full aspect-video rounded-md" draggable={false} />

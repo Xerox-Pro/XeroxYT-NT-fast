@@ -124,13 +124,13 @@ const ChannelPage: React.FC = () => {
     };
 
     const handleSavePlaylist = async (playlist: ApiPlaylist) => {
-        if (savingPlaylistId === playlist.id) return;
+        if (savingPlaylistId === playlist.id || !playlist.author || !playlist.authorId) return;
         setSavingPlaylistId(playlist.id);
         try {
             const details = await getPlaylistDetails(playlist.id);
             const videoIds = details.videos.map(v => v.id);
-            const playlistName = `${playlist.title} - ${playlist.author}`;
-            createPlaylist(playlistName, videoIds);
+            const playlistName = `${playlist.title}`;
+            createPlaylist(playlistName, videoIds, playlist.author, playlist.authorId);
             alert(`プレイリスト「${playlistName}」をライブラリに保存しました。`);
         } catch (error) {
             console.error("Failed to save playlist:", error);

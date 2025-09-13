@@ -14,6 +14,7 @@ import { LikeIcon, SaveIcon } from '../components/icons/Icons';
 
 const VideoPlayerPage: React.FC = () => {
     const { videoId } = useParams<{ videoId: string }>();
+    // FIX: Destructure setSearchParams from useSearchParams to update URL parameters.
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const playlistId = searchParams.get('list');
@@ -95,8 +96,6 @@ const VideoPlayerPage: React.FC = () => {
     const shuffledPlaylistVideos = useMemo(() => {
         if (!isShuffle || playlistVideos.length === 0) return playlistVideos;
         
-        // Find current video in the shuffled list and place it at the beginning
-        // This makes shuffle start from the current video, then randomize the rest
         const currentIndex = playlistVideos.findIndex(v => v.id === videoId);
         if (currentIndex === -1) return [...playlistVideos].sort(() => Math.random() - 0.5);
 
@@ -129,7 +128,7 @@ const VideoPlayerPage: React.FC = () => {
         } else {
             newSearchParams.set(key, value);
         }
-        navigate(`?${newSearchParams.toString()}`, { replace: true });
+        setSearchParams(newSearchParams, { replace: true });
     };
 
     const toggleShuffle = () => {
@@ -281,6 +280,7 @@ const VideoPlayerPage: React.FC = () => {
                 {currentPlaylist && videoId ? (
                     <PlaylistPanel
                         playlist={currentPlaylist}
+                        authorName={currentPlaylist.authorName}
                         videos={playlistVideos}
                         currentVideoId={videoId}
                         isShuffle={isShuffle}

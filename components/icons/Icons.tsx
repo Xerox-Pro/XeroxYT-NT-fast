@@ -89,8 +89,8 @@ export const SaveIcon: React.FC = () => (
     </svg>
 );
 
-export const PlaylistIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
+export const PlaylistIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={className || iconClasses}>
         <path d="M3 10h11v2H3v-2zm0-4h11v2H3V6zm0 8h7v2H3v-2zm13-1v-6l5 3-5 3z"></path>
     </svg>
 );
@@ -194,5 +194,11 @@ export const RepeatIcon: React.FC<{className?: string}> = ({className}) => (
 export const AddToPlaylistIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className="fill-current text-white">
         <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path>
+    </svg>
+);
+
+export const DragHandleIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={secondaryIconClasses}>
+        <path d="M9 4h2v2H9V4zm0 6h2v2H9v-2zm0 6h2v2H9v-2zm6-12h2v2h-2V4zm0 6h2v2h-2v-2zm0 6h2v2h-2v-2z"></path>
     </svg>
 );

@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlaylist } from '../contexts/PlaylistContext';
 import { getVideosByIds } from '../utils/api';
 import type { Playlist } from '../types';
-import { PlaylistIcon } from '../components/icons/Icons';
+import { PlaylistIcon, PlayIcon } from '../components/icons/Icons';
 
 const YouPage: React.FC = () => {
     const { playlists } = usePlaylist();
@@ -43,27 +42,48 @@ const YouPage: React.FC = () => {
             {playlists.length === 0 ? (
                 <p className="text-yt-light-gray">作成したプレイリストはありません。</p>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {playlists.map(playlist => (
-                        <Link key={playlist.id} to={`/playlist/${playlist.id}`} className="group">
-                            <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
-                                {playlistThumbnails[playlist.id] ? (
-                                    <img src={playlistThumbnails[playlist.id]} alt={playlist.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                        <PlaylistIcon />
+                <div className="space-y-4">
+                    {playlists.map(playlist => {
+                        const firstVideoId = playlist.videoIds[0];
+                        const playAllLink = firstVideoId 
+                            ? `/watch/${firstVideoId}?list=${playlist.id}`
+                            : `/playlist/${playlist.id}`;
+                        
+                        return (
+                            <div key={playlist.id} className="flex flex-col sm:flex-row gap-4">
+                                <Link to={playAllLink} className="relative sm:w-80 flex-shrink-0 group">
+                                    <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
+                                        {playlistThumbnails[playlist.id] ? (
+                                            <img src={playlistThumbnails[playlist.id]} alt={playlist.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center bg-yt-gray">
+                                                <PlaylistIcon className="w-12 h-12 text-yt-light-gray" />
+                                            </div>
+                                        )}
+                                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-sm font-semibold flex items-center justify-center">
+                                            <PlaylistIcon className="w-5 h-5" />
+                                            <span className="ml-2">{playlist.videoIds.length} 本の動画</span>
+                                        </div>
+                                         {firstVideoId && (
+                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white">
+                                                <PlayIcon className="w-6 h-6 fill-current text-white" />
+                                                <span>すべて再生</span>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                                <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                                    <div className="text-center text-white">
-                                        <PlaylistIcon />
-                                        <p className="font-semibold">{playlist.videoIds.length} 本の動画</p>
-                                    </div>
+                                </Link>
+                                <div className="flex-1 py-2">
+                                    <Link to={`/playlist/${playlist.id}`}>
+                                        <h2 className="text-xl font-semibold line-clamp-2 hover:text-opacity-80">{playlist.name}</h2>
+                                    </Link>
+                                    <p className="text-sm text-yt-light-gray mt-1">{playlist.authorName}</p>
+                                    <Link to={`/playlist/${playlist.id}`} className="text-sm text-yt-light-gray hover:text-white mt-3 inline-block">
+                                        プレイリスト全体を表示
+                                    </Link>
                                 </div>
                             </div>
-                            <h3 className="font-semibold mt-2">{playlist.name}</h3>
-                        </Link>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
