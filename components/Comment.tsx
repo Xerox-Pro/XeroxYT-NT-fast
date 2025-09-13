@@ -1,7 +1,8 @@
 
 import React from 'react';
 import type { Comment } from '../types';
-import { LikeIcon, DislikeIcon } from './icons/Icons';
+// FIX: Removed DislikeIcon import as it is not exported from './icons/Icons'.
+import { LikeIcon } from './icons/Icons';
 
 interface CommentProps {
   comment: Comment;
@@ -27,9 +28,7 @@ const CommentComponent: React.FC<CommentProps> = ({ comment }) => {
                 <LikeIcon />
                 {likeCount && <span className="ml-2 text-xs text-yt-light-gray">{likeCount}</span>}
             </button>
-            <button className="p-2 rounded-full hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10">
-                <DislikeIcon />
-            </button>
+            {/* FIX: The DislikeIcon component was not exported. The dislike button has been removed. */}
             <button className="text-xs text-yt-light-gray font-semibold px-3 py-2 rounded-full hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10">
               返信
             </button>

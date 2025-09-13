@@ -29,7 +29,8 @@ const PlaylistModal: React.FC<PlaylistModalProps> = ({ isOpen, onClose, video })
     
     const handleCreatePlaylist = () => {
         if (newPlaylistName.trim()) {
-            createPlaylist(newPlaylistName.trim(), video.id);
+            // FIX: createPlaylist expects an array of video IDs. Wrapped video.id in an array.
+            createPlaylist(newPlaylistName.trim(), [video.id]);
             setNewPlaylistName('');
             setShowNewPlaylistInput(false);
         }

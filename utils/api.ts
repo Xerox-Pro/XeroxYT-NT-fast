@@ -1,5 +1,4 @@
-
-import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment } from '../types';
+import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment, PlaylistDetails } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
 const INSTANCES = [
@@ -276,10 +275,28 @@ export async function getChannelPlaylists(channelId: string, pageToken = '1'): P
     const page = parseInt(pageToken, 10);
     const data = await apiFetch(`/channels/${channelId}/playlists?page=${page}`);
     const playlists: ApiPlaylist[] = (data.playlists || []).map((item: any): ApiPlaylist => ({
-        id: item.playlistId, title: item.title,
+        id: item.playlistId,
+        title: item.title,
         thumbnailUrl: item.videos?.[0]?.videoId ? `https://i.ytimg.com/vi/${item.videos[0].videoId}/hqdefault.jpg` : undefined,
         videoCount: item.videoCount,
+        author: item.author,
+        authorId: item.authorId,
     }));
     const hasMore = playlists.length > 0;
     return { playlists, nextPageToken: hasMore ? String(page + 1) : undefined };
+}
+
+export async function getPlaylistDetails(playlistId: string): Promise<PlaylistDetails> {
+    const data = await apiFetch(`/playlists/${playlistId}`);
+    if (!data.playlistId) throw new Error(`ID ${playlistId} のプレイリストが見つかりません。`);
+    
+    const videos = (data.videos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
+    
+    return {
+        title: data.title,
+        author: data.author,
+        authorId: data.authorId,
+        description: data.description,
+        videos: videos
+    };
 }

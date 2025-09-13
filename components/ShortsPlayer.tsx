@@ -1,8 +1,7 @@
-
 import React from 'react';
 import type { Video } from '../types';
 import { Link } from 'react-router-dom';
-import { LikeIcon, DislikeIcon, ShareIcon, MoreIconHorizontal, CommentIcon } from './icons/Icons';
+import { LikeIcon, MoreIconHorizontal, CommentIcon } from './icons/Icons';
 
 
 interface ShortsPlayerProps {
@@ -45,16 +44,8 @@ const ShortsPlayer: React.FC<ShortsPlayerProps> = ({ video, playerParams }) => {
                     <span className="text-xs mt-1">{viewsText}</span>
                 </button>
                 <button className="flex flex-col items-center p-2 rounded-full bg-black/50">
-                    <DislikeIcon />
-                    <span className="text-xs mt-1">低評価</span>
-                </button>
-                <button className="flex flex-col items-center p-2 rounded-full bg-black/50">
                     <CommentIcon />
                     <span className="text-xs mt-1">...</span>
-                </button>
-                <button className="flex flex-col items-center p-2 rounded-full bg-black/50">
-                    <ShareIcon />
-                    <span className="text-xs mt-1">共有</span>
                 </button>
                 <button className="p-2 rounded-full bg-black/50">
                     <MoreIconHorizontal />

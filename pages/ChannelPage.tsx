@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos } from '../utils/api';
+import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos, getPlaylistDetails } from '../utils/api';
 import type { ChannelDetails, Video, ApiPlaylist, Channel } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
 import { useSubscription } from '../contexts/SubscriptionContext';
-import { PlaylistIcon } from '../components/icons/Icons';
+import { usePlaylist } from '../contexts/PlaylistContext';
+import { PlaylistIcon, AddToPlaylistIcon } from '../components/icons/Icons';
 
 type Tab = 'home' | 'videos' | 'shorts' | 'playlists';
 
@@ -33,6 +34,7 @@ const ChannelPage: React.FC = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [shorts, setShorts] = useState<Video[]>([]);
     const [playlists, setPlaylists] = useState<ApiPlaylist[]>([]);
+    const [savingPlaylistId, setSavingPlaylistId] = useState<string | null>(null);
 
     const [videosPageToken, setVideosPageToken] = useState<string | undefined>(undefined);
     const [shortsPageToken, setShortsPageToken] = useState<string | undefined>(undefined);
@@ -43,6 +45,7 @@ const ChannelPage: React.FC = () => {
     const prevChannelIdRef = useRef<string | undefined>(undefined);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
+    const { createPlaylist } = usePlaylist();
 
     useEffect(() => {
         const loadInitialDetails = async () => {
@@ -117,6 +120,23 @@ const ChannelPage: React.FC = () => {
             case 'videos': if (videosPageToken) fetchTabData('videos', videosPageToken); break;
             case 'shorts': if (shortsPageToken) fetchTabData('shorts', shortsPageToken); break;
             case 'playlists': if (playlistsPageToken) fetchTabData('playlists', playlistsPageToken); break;
+        }
+    };
+
+    const handleSavePlaylist = async (playlist: ApiPlaylist) => {
+        if (savingPlaylistId === playlist.id) return;
+        setSavingPlaylistId(playlist.id);
+        try {
+            const details = await getPlaylistDetails(playlist.id);
+            const videoIds = details.videos.map(v => v.id);
+            const playlistName = `${playlist.title} - ${playlist.author}`;
+            createPlaylist(playlistName, videoIds);
+            alert(`プレイリスト「${playlistName}」をライブラリに保存しました。`);
+        } catch (error) {
+            console.error("Failed to save playlist:", error);
+            alert("プレイリストの保存に失敗しました。");
+        } finally {
+            setSavingPlaylistId(null);
         }
     };
     
@@ -197,22 +217,32 @@ const ChannelPage: React.FC = () => {
                 {activeTab === 'playlists' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                         {playlists.map(p => (
-                            <Link key={p.id} to={`/playlist/${p.id}`} className="group">
-                                <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
-                                    {p.thumbnailUrl ? (
-                                        <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full bg-yt-gray" />
-                                    )}
-                                    <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                                        <div className="text-center text-white">
-                                            <PlaylistIcon />
-                                            <p className="font-semibold">{p.videoCount} 本の動画</p>
+                            <div key={p.id} className="group relative">
+                                <Link to={`/playlist/${p.id}`}>
+                                    <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
+                                        {p.thumbnailUrl ? (
+                                            <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full bg-yt-gray" />
+                                        )}
+                                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                                            <div className="text-center text-white">
+                                                <PlaylistIcon />
+                                                <p className="font-semibold">{p.videoCount} 本の動画</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <h3 className="font-semibold mt-2">{p.title}</h3>
-                            </Link>
+                                    <h3 className="font-semibold mt-2">{p.title}</h3>
+                                </Link>
+                                <button
+                                    onClick={() => handleSavePlaylist(p)}
+                                    className="absolute top-2 right-2 p-2 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                                    title="ライブラリに保存"
+                                    disabled={savingPlaylistId === p.id}
+                                >
+                                    <AddToPlaylistIcon />
+                                </button>
+                            </div>
                         ))}
                     </div>
                 )}

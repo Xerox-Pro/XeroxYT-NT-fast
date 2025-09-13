@@ -1,15 +1,15 @@
-
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import type { Playlist } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 interface PlaylistContextType {
   playlists: Playlist[];
-  createPlaylist: (name: string, firstVideoId?: string) => void;
+  createPlaylist: (name: string, videoIds?: string[]) => void;
   renamePlaylist: (playlistId: string, newName: string) => void;
   deletePlaylist: (playlistId: string) => void;
   addVideoToPlaylist: (playlistId: string, videoId: string) => void;
   removeVideoFromPlaylist: (playlistId: string, videoId: string) => void;
+  reorderVideosInPlaylist: (playlistId: string, startIndex: number, endIndex: number) => void;
   isVideoInPlaylist: (playlistId: string, videoId: string) => boolean;
   getPlaylistsContainingVideo: (videoId: string) => string[];
 }
@@ -35,11 +35,11 @@ export const PlaylistProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   }, [playlists]);
 
-  const createPlaylist = (name: string, firstVideoId?: string) => {
+  const createPlaylist = (name: string, videoIds: string[] = []) => {
     const newPlaylist: Playlist = {
       id: uuidv4(),
       name,
-      videoIds: firstVideoId ? [firstVideoId] : [],
+      videoIds: videoIds,
       createdAt: new Date().toISOString(),
     };
     setPlaylists(prev => [newPlaylist, ...prev]);
@@ -75,6 +75,18 @@ export const PlaylistProvider: React.FC<{ children: ReactNode }> = ({ children }
     );
   };
 
+  const reorderVideosInPlaylist = (playlistId: string, startIndex: number, endIndex: number) => {
+    setPlaylists(prev => prev.map(p => {
+      if (p.id === playlistId) {
+        const newVideoIds = Array.from(p.videoIds);
+        const [removed] = newVideoIds.splice(startIndex, 1);
+        newVideoIds.splice(endIndex, 0, removed);
+        return { ...p, videoIds: newVideoIds };
+      }
+      return p;
+    }));
+  };
+
   const isVideoInPlaylist = (playlistId: string, videoId: string) => {
     const playlist = playlists.find(p => p.id === playlistId);
     return playlist ? playlist.videoIds.includes(videoId) : false;
@@ -85,7 +97,7 @@ export const PlaylistProvider: React.FC<{ children: ReactNode }> = ({ children }
   }
 
   return (
-    <PlaylistContext.Provider value={{ playlists, createPlaylist, renamePlaylist, deletePlaylist, addVideoToPlaylist, removeVideoFromPlaylist, isVideoInPlaylist, getPlaylistsContainingVideo }}>
+    <PlaylistContext.Provider value={{ playlists, createPlaylist, renamePlaylist, deletePlaylist, addVideoToPlaylist, removeVideoFromPlaylist, reorderVideosInPlaylist, isVideoInPlaylist, getPlaylistsContainingVideo }}>
       {children}
     </PlaylistContext.Provider>
   );

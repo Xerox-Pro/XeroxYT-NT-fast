@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 const iconClasses = "fill-current text-black dark:text-white";
@@ -84,26 +83,6 @@ export const LikeIconFilled: React.FC = () => (
     </svg>
 );
 
-
-export const DislikeIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
-        <path d="M3 14.27V21h4V12.5L3 13.27zM15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm0 12H8.69l1.15-5.41L15 5v10zM19 3v12h4V3h-4z"></path>
-    </svg>
-);
-
-export const DislikeIconFilled: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
-        <path d="M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79-.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z"></path>
-    </svg>
-);
-
-
-export const ShareIcon: React.FC = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
-        <path d="M13 3.03v2.32c-5.12.5-9 4.77-9 9.65 0 2.16.84 4.14 2.22 5.66 1.93-3.14 5.24-5.22 9.28-5.22v2.32L21 12l-8-8.97z"></path>
-    </svg>
-);
-
 export const SaveIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
         <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path>
@@ -113,6 +92,12 @@ export const SaveIcon: React.FC = () => (
 export const PlaylistIcon: React.FC = () => (
     <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
         <path d="M3 10h11v2H3v-2zm0-4h11v2H3V6zm0 8h7v2H3v-2zm13-1v-6l5 3-5 3z"></path>
+    </svg>
+);
+
+export const PlayIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={className || iconClasses}>
+        <path d="M8 5v14l11-7z"></path>
     </svg>
 );
 
@@ -192,4 +177,22 @@ export const ChevronRightIcon: React.FC = () => (
   <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={iconClasses}>
     <path d="M10 6 8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path>
   </svg>
+);
+
+export const ShuffleIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={className || iconClasses}>
+        <path d="m14.83 5.17 2.83 2.83H4v2h13.66l-2.83 2.83 1.41 1.41L21.41 12l-5.17-5.17-1.41 1.41zM4 15h6.17l-2.83 2.83 1.41 1.41L12.41 15.5l-3.66-3.66-1.41 1.41L10.17 16H4v-1z"></path>
+    </svg>
+);
+
+export const RepeatIcon: React.FC<{className?: string}> = ({className}) => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className={className || iconClasses}>
+        <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"></path>
+    </svg>
+);
+
+export const AddToPlaylistIcon: React.FC = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" className="fill-current text-white">
+        <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path>
+    </svg>
 );

@@ -1,18 +1,23 @@
-
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getVideoDetails, getPlayerConfig, getComments } from '../utils/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { getVideoDetails, getPlayerConfig, getComments, getVideosByIds } from '../utils/api';
 import type { VideoDetails, Video, Comment } from '../types';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
+import { usePlaylist } from '../contexts/PlaylistContext';
 import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkeleton';
 import RelatedVideoCard from '../components/RelatedVideoCard';
 import PlaylistModal from '../components/PlaylistModal';
 import CommentComponent from '../components/Comment';
-import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon } from '../components/icons/Icons';
+import PlaylistPanel from '../components/PlaylistPanel';
+import { LikeIcon, SaveIcon } from '../components/icons/Icons';
 
 const VideoPlayerPage: React.FC = () => {
     const { videoId } = useParams<{ videoId: string }>();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const playlistId = searchParams.get('list');
+
     const [videoDetails, setVideoDetails] = useState<VideoDetails | null>(null);
     const [comments, setComments] = useState<Comment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -20,9 +25,24 @@ const VideoPlayerPage: React.FC = () => {
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
     const [playerParams, setPlayerParams] = useState<string | null>(null);
+    const [playlistVideos, setPlaylistVideos] = useState<Video[]>([]);
+    
+    const [isShuffle, setIsShuffle] = useState(searchParams.get('shuffle') === '1');
+    const [isLoop, setIsLoop] = useState(searchParams.get('loop') === '1');
 
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
     const { addVideoToHistory } = useHistory();
+    const { playlists, reorderVideosInPlaylist } = usePlaylist();
+
+    const currentPlaylist = useMemo(() => {
+        if (!playlistId) return null;
+        return playlists.find(p => p.id === playlistId) || null;
+    }, [playlistId, playlists]);
+
+    useEffect(() => {
+        setIsShuffle(searchParams.get('shuffle') === '1');
+        setIsLoop(searchParams.get('loop') === '1');
+    }, [searchParams]);
     
     useEffect(() => {
         const fetchPlayerParams = async () => {
@@ -32,12 +52,13 @@ const VideoPlayerPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const fetchDetailsAndComments = async () => {
+        const fetchDetailsAndPlaylist = async () => {
             if (!videoId) return;
             setIsLoading(true);
             setError(null);
             setVideoDetails(null);
             setComments([]);
+            setPlaylistVideos([]);
             window.scrollTo(0, 0);
 
             try {
@@ -49,6 +70,17 @@ const VideoPlayerPage: React.FC = () => {
                 setVideoDetails(details);
                 setComments(commentsData);
                 addVideoToHistory(details);
+
+                if (currentPlaylist) {
+                    if (currentPlaylist.videoIds.length > 0) {
+                        const fetchedVideos = await getVideosByIds(currentPlaylist.videoIds);
+                        const videoMap = new Map(fetchedVideos.map(v => [v.id, v]));
+                        const orderedVideos = currentPlaylist.videoIds.map(id => videoMap.get(id)).filter((v): v is Video => !!v);
+                        setPlaylistVideos(orderedVideos);
+                    } else {
+                        setPlaylistVideos([]);
+                    }
+                }
             } catch (err: any) {
                 setError(err.message || '動画の読み込みに失敗しました。');
                 console.error(err);
@@ -57,8 +89,65 @@ const VideoPlayerPage: React.FC = () => {
             }
         };
 
-        fetchDetailsAndComments();
-    }, [videoId, addVideoToHistory]);
+        fetchDetailsAndPlaylist();
+    }, [videoId, addVideoToHistory, currentPlaylist]);
+
+    const shuffledPlaylistVideos = useMemo(() => {
+        if (!isShuffle || playlistVideos.length === 0) return playlistVideos;
+        
+        // Find current video in the shuffled list and place it at the beginning
+        // This makes shuffle start from the current video, then randomize the rest
+        const currentIndex = playlistVideos.findIndex(v => v.id === videoId);
+        if (currentIndex === -1) return [...playlistVideos].sort(() => Math.random() - 0.5);
+
+        const otherVideos = [...playlistVideos.slice(0, currentIndex), ...playlistVideos.slice(currentIndex + 1)];
+        const shuffledOthers = otherVideos.sort(() => Math.random() - 0.5);
+        return [playlistVideos[currentIndex], ...shuffledOthers];
+
+    }, [isShuffle, playlistVideos, videoId]);
+
+    const iframeSrc = useMemo(() => {
+        if (!videoDetails?.id || !playerParams) return '';
+        
+        let src = `https://www.youtubeeducation.com/embed/${videoDetails.id}`;
+        let params = playerParams.startsWith('?') ? playerParams.substring(1) : playerParams;
+
+        if (currentPlaylist && playlistVideos.length > 0) {
+            const videoIdList = (isShuffle ? shuffledPlaylistVideos : playlistVideos).map(v => v.id);
+            const playlistString = videoIdList.join(',');
+            params += `&playlist=${playlistString}`;
+            if(isLoop) params += `&loop=1`;
+        }
+        
+        return `${src}?${params}`;
+    }, [videoDetails, playerParams, currentPlaylist, playlistVideos, isShuffle, isLoop, shuffledPlaylistVideos]);
+    
+    const updateUrlParams = (key: string, value: string | null) => {
+        const newSearchParams = new URLSearchParams(searchParams);
+        if (value === null) {
+            newSearchParams.delete(key);
+        } else {
+            newSearchParams.set(key, value);
+        }
+        navigate(`?${newSearchParams.toString()}`, { replace: true });
+    };
+
+    const toggleShuffle = () => {
+        const newShuffleState = !isShuffle;
+        setIsShuffle(newShuffleState);
+        updateUrlParams('shuffle', newShuffleState ? '1' : null);
+    };
+
+    const toggleLoop = () => {
+        const newLoopState = !isLoop;
+        setIsLoop(newLoopState);
+        updateUrlParams('loop', newLoopState ? '1' : null);
+    };
+
+    const handlePlaylistReorder = (startIndex: number, endIndex: number) => {
+        if (!playlistId) return;
+        reorderVideosInPlaylist(playlistId, startIndex, endIndex);
+    };
 
     if (isLoading || playerParams === null) {
         return <VideoPlayerPageSkeleton />;
@@ -127,7 +216,8 @@ const VideoPlayerPage: React.FC = () => {
             <div className="flex-grow lg:w-2/3">
                 <div className="aspect-video bg-yt-black rounded-xl overflow-hidden">
                      <iframe
-                        src={`https://www.youtubeeducation.com/embed/${videoDetails.id}${playerParams}`}
+                        src={iframeSrc}
+                        key={iframeSrc}
                         title={videoDetails.title}
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -156,20 +246,10 @@ const VideoPlayerPage: React.FC = () => {
                     </div>
 
                     <div className="flex items-center space-x-2">
-                        <div className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-9">
-                            <button className="flex items-center pl-4 pr-3 py-2 hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 rounded-l-full">
-                                <LikeIcon />
-                                <span className="ml-2 text-sm font-semibold">{videoDetails.likes}</span>
-                            </button>
-                            <div className="w-px h-5 bg-yt-spec-light-20 dark:bg-yt-spec-20"></div>
-                             <button className="px-3 py-2 hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10 rounded-r-full">
-                                <DislikeIcon />
-                            </button>
+                        <div className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-9 px-4 py-2">
+                            <LikeIcon />
+                            <span className="ml-2 text-sm font-semibold">{videoDetails.likes}</span>
                         </div>
-                        <button className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-9 px-4 hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10">
-                            <ShareIcon />
-                            <span className="ml-2 text-sm font-semibold">共有</span>
-                        </button>
                         <button onClick={() => setIsPlaylistModalOpen(true)} className="flex items-center bg-yt-light dark:bg-yt-dark-gray rounded-full h-9 px-4 hover:bg-yt-spec-light-10 dark:hover:bg-yt-spec-10">
                             <SaveIcon />
                             <span className="ml-2 text-sm font-semibold">保存</span>
@@ -198,11 +278,26 @@ const VideoPlayerPage: React.FC = () => {
             </div>
             
             <div className="lg:w-1/3 lg:max-w-sm flex-shrink-0">
-                <div className="flex flex-col space-y-3">
-                    {videoDetails.relatedVideos.map(video => (
-                        <RelatedVideoCard key={video.id} video={video} />
-                    ))}
-                </div>
+                {currentPlaylist && videoId ? (
+                    <PlaylistPanel
+                        playlist={currentPlaylist}
+                        videos={playlistVideos}
+                        currentVideoId={videoId}
+                        isShuffle={isShuffle}
+                        isLoop={isLoop}
+                        toggleShuffle={toggleShuffle}
+                        toggleLoop={toggleLoop}
+                        onReorder={handlePlaylistReorder}
+                    />
+                ) : (
+                    videoDetails.relatedVideos.length > 0 && (
+                        <div className="flex flex-col space-y-3">
+                            {videoDetails.relatedVideos.map(video => (
+                                <RelatedVideoCard key={video.id} video={video} />
+                            ))}
+                        </div>
+                    )
+                )}
             </div>
 
             {isPlaylistModalOpen && (

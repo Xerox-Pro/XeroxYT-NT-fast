@@ -1,4 +1,3 @@
-
 export interface Video {
   id: string;
   thumbnailUrl: string;
@@ -50,6 +49,16 @@ export interface ApiPlaylist {
   title: string;
   thumbnailUrl?: string;
   videoCount: number;
+  author?: string;
+  authorId?: string;
+}
+
+export interface PlaylistDetails {
+  title: string;
+  author: string;
+  authorId: string;
+  description: string;
+  videos: Video[];
 }
 
 export interface Playlist {
