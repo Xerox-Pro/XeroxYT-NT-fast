@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ShortsPlayer from '../components/ShortsPlayer';
-import { searchVideos } from '../utils/api';
+import { searchVideos, getPlayerConfig } from '../utils/api';
 import type { Video } from '../types';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useSearchHistory } from '../contexts/SearchHistoryContext';
@@ -12,6 +12,7 @@ const ShortsPage: React.FC = () => {
     const [videos, setVideos] = useState<Video[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [playerParams, setPlayerParams] = useState<string | null>(null);
 
     const shortsQueryTerms = useMemo(() => {
         const terms = new Set<string>();
@@ -33,15 +34,21 @@ const ShortsPage: React.FC = () => {
         setError(null);
         
         try {
-            const promises = [
+            const paramsPromise = getPlayerConfig();
+            const videoPromises = [
                 searchVideos('trending #shorts').then(res => res.videos),
                 ...shortsQueryTerms.map(term => searchVideos(term, '').then(res => res.videos))
             ];
             
-            const results = await Promise.allSettled(promises);
+            const [params, videoResults] = await Promise.all([
+                paramsPromise,
+                Promise.allSettled(videoPromises),
+            ]);
+            
+            setPlayerParams(params);
             
             let allVideos: Video[] = [];
-            results.forEach(result => {
+            videoResults.forEach(result => {
                 if (result.status === 'fulfilled' && Array.isArray(result.value)) {
                     allVideos.push(...result.value);
                 }
@@ -77,10 +84,10 @@ const ShortsPage: React.FC = () => {
     
     return (
         <div className="h-full w-full overflow-y-auto snap-y snap-mandatory scroll-smooth flex flex-col items-center">
-            {videos.length > 0 ? (
+            {videos.length > 0 && playerParams ? (
                 videos.map(video => (
                     <div key={video.id} className="h-full w-full flex-shrink-0 snap-center flex justify-center items-center py-4">
-                        <ShortsPlayer video={video} />
+                        <ShortsPlayer video={video} playerParams={playerParams} />
                     </div>
                 ))
             ) : (

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getVideoDetails } from '../utils/api';
+import { getVideoDetails, getPlayerConfig } from '../utils/api';
 import type { VideoDetails, Video } from '../types';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
@@ -16,10 +16,18 @@ const VideoPlayerPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isPlaylistModalOpen, setIsPlaylistModalOpen] = useState(false);
+    const [playerParams, setPlayerParams] = useState<string | null>(null);
 
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
     const { addVideoToHistory } = useHistory();
     
+    useEffect(() => {
+        const fetchPlayerParams = async () => {
+            setPlayerParams(await getPlayerConfig());
+        };
+        fetchPlayerParams();
+    }, []);
+
     useEffect(() => {
         const fetchDetails = async () => {
             if (!videoId) return;
@@ -43,7 +51,7 @@ const VideoPlayerPage: React.FC = () => {
         fetchDetails();
     }, [videoId, addVideoToHistory]);
 
-    if (isLoading) {
+    if (isLoading || playerParams === null) {
         return <VideoPlayerPageSkeleton />;
     }
 
@@ -52,9 +60,9 @@ const VideoPlayerPage: React.FC = () => {
             <div className="flex flex-col lg:flex-row gap-6">
                 <div className="flex-grow lg:w-2/3">
                     <div className="aspect-video bg-yt-black rounded-xl overflow-hidden">
-                        {videoId && (
+                        {videoId && playerParams && (
                              <iframe
-                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+                                src={`https://www.youtubeeducation.com/embed/${videoId}${playerParams}`}
                                 title="YouTube video player"
                                 frameBorder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -110,7 +118,7 @@ const VideoPlayerPage: React.FC = () => {
             <div className="flex-grow lg:w-2/3">
                 <div className="aspect-video bg-yt-black rounded-xl overflow-hidden">
                      <iframe
-                        src={`https://www.youtube.com/embed/${videoDetails.id}?autoplay=1&rel=0`}
+                        src={`https://www.youtubeeducation.com/embed/${videoDetails.id}${playerParams}`}
                         title={videoDetails.title}
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

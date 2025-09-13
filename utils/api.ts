@@ -86,6 +86,31 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
   return `${Math.floor(seconds)}秒前`;
 };
 
+// --- PLAYER CONFIG FETCHER ---
+let playerConfigParams: string | null = null;
+
+export async function getPlayerConfig(): Promise<string> {
+    if (playerConfigParams) {
+        return playerConfigParams;
+    }
+
+    try {
+        const config = await proxiedFetch('https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json');
+        
+        if (typeof config.params !== 'string') {
+            throw new Error('Invalid player config format: "params" key is missing or not a string.');
+        }
+
+        const decodedParams = config.params.replace(/&amp;/g, '&');
+        playerConfigParams = decodedParams;
+        return playerConfigParams;
+    } catch (error) {
+        console.error("Error fetching or parsing player config, falling back to default params:", error);
+        return '?autoplay=1&rel=0';
+    }
+}
+
+
 // --- DATA MAPPING HELPERS ---
 const mapInvidiousItemToVideo = (item: any): Video | null => {
     if (!item.videoId) return null;

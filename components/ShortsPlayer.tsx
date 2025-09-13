@@ -5,13 +5,18 @@ import { Link } from 'react-router-dom';
 import { LikeIcon, DislikeIcon, ShareIcon, MoreIconHorizontal, CommentIcon } from './icons/Icons';
 
 
-const ShortsPlayer: React.FC<{ video: Video }> = ({ video }) => {
+interface ShortsPlayerProps {
+    video: Video;
+    playerParams: string;
+}
+
+const ShortsPlayer: React.FC<ShortsPlayerProps> = ({ video, playerParams }) => {
     const viewsText = video.views.includes('不明') ? '...' : video.views.split('回')[0];
 
     return (
         <div className="h-full w-full max-w-[400px] aspect-[9/16] relative snap-start flex-shrink-0 rounded-2xl overflow-hidden bg-yt-black">
             <iframe
-                src={`https://www.youtube.com/embed/${video.id}?controls=0&loop=1&playlist=${video.id}&modestbranding=1&rel=0`}
+                src={`https://www.youtubeeducation.com/embed/${video.id}${playerParams}`}
                 title={video.title}
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
