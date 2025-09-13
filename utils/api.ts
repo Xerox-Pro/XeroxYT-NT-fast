@@ -1,4 +1,5 @@
-import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, ChannelBadge } from '../types';
+
+import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
 const INSTANCES = [
@@ -122,14 +123,6 @@ const mapInvidiousItemToVideo = (item: any): Video | null => {
     };
 };
 
-const mapInvidiousDetailsToVideo = (item: any): Video => ({
-    id: item.videoId, thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
-    duration: formatDuration(item.lengthSeconds), isoDuration: `PT${item.lengthSeconds}S`, title: item.title,
-    channelName: item.author, channelId: item.authorId,
-    channelAvatarUrl: item.authorThumbnails?.[0]?.url || '',
-    views: `${formatNumber(item.viewCount)}回視聴`, uploadedAt: item.publishedText || formatTimeAgo(item.published),
-});
-
 const mapXeroxSearchResultToVideo = (item: any): Video | null => {
     if (item?.type !== 'Video' || !item.id) return null;
     const durationInSeconds = item.duration?.seconds ?? 0;
@@ -169,62 +162,84 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     try {
-        const data = await apiFetch(`/videos/${videoId}`);
-
-        if (!data || !data.videoId) {
-            if (data && data.error) {
-                throw new Error(data.error);
-            }
-            throw new Error('APIからの動画詳細の解析に失敗しました。データが不完全です。');
+        const data = await proxiedFetch(`https://xeroxapp060.vercel.app/api/video?id=${videoId}`);
+        
+        if (data.playability_status?.status !== 'OK' && !data.primary_info?.title?.text) {
+             throw new Error(data.playability_status?.reason || '動画は利用できません。');
         }
-    
+
+        const primary = data.primary_info;
+        const secondary = data.secondary_info;
+        const basic = data.basic_info;
+
         const channel: Channel = {
-            id: data.authorId || '',
-            name: data.author || '不明なチャンネル',
-            avatarUrl: data.authorThumbnails?.find((t: any) => t.width > 80)?.url || data.authorThumbnails?.[0]?.url || '',
-            subscriberCount: data.subCountText || '',
-            badges: [],
+            id: secondary.owner.author.id,
+            name: secondary.owner.author.name,
+            avatarUrl: secondary.owner.author.thumbnails.find((t: any) => t.width >= 88)?.url || secondary.owner.author.thumbnails[0]?.url,
+            subscriberCount: secondary.owner.subscriber_count.text,
+            badges: secondary.owner.author.badges?.map((b: any) => ({ type: b.style, tooltip: b.tooltip })) || [],
         };
-    
-        const relatedVideos: Video[] = (data.recommendedVideos || []).map((item: any): Video | null => {
-            if (!item.videoId) return null;
-            return {
-                id: item.videoId,
-                thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
-                duration: formatDuration(item.lengthSeconds),
-                isoDuration: `PT${item.lengthSeconds}S`,
-                title: item.title,
-                channelName: item.author,
-                channelId: item.authorId || '',
-                channelAvatarUrl: '',
-                views: item.viewCountText || (item.viewCount ? `${formatNumber(item.viewCount)}回視聴` : ''),
-                uploadedAt: item.publishedText || '',
-            };
-        }).filter((v): v is Video => v !== null);
-    
-        const descriptionHtml = data.descriptionHtml;
-        const descriptionText = data.description || '';
-    
+        
+        const relatedVideos: Video[] = (data.watch_next_feed || [])
+            .map((item: any): Video | null => {
+                if (item?.type !== 'LockupView' || item.content_type !== 'VIDEO' || !item.content_id) return null;
+                
+                const metadata = item.metadata?.metadata;
+                const rows = metadata?.metadata_rows || [];
+                const authorInfo = rows[0]?.metadata_parts[0]?.text;
+                const viewInfo = rows[1]?.metadata_parts;
+
+                const endScreenItem = data.player_overlays?.end_screen?.results.find((res: any) => res.type === 'EndScreenVideo' && res.id === item.content_id);
+                const duration = endScreenItem?.duration?.text || '';
+
+                return {
+                    id: item.content_id,
+                    thumbnailUrl: `https://i.ytimg.com/vi/${item.content_id}/hqdefault.jpg`,
+                    duration: duration,
+                    isoDuration: '', // Not available
+                    title: item.metadata?.title?.text || 'Untitled Video',
+                    channelName: authorInfo?.text || 'Unknown Channel',
+                    channelId: authorInfo?.endpoint?.payload?.browseId || '',
+                    channelAvatarUrl: '', // Not available in this part of feed
+                    views: viewInfo?.[0]?.text?.text || '',
+                    uploadedAt: viewInfo?.[1]?.text?.text || '',
+                };
+            })
+            .filter((v): v is Video => v !== null);
+
         return {
             id: videoId,
             thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-            duration: formatDuration(data.lengthSeconds),
-            isoDuration: `PT${data.lengthSeconds}S`,
-            title: data.title || '無題の動画',
+            duration: '', // Not available in this API response
+            isoDuration: '', // Not available
+            title: primary.title.text,
             channelName: channel.name,
             channelId: channel.id,
             channelAvatarUrl: channel.avatarUrl,
-            views: data.viewCountText || (data.viewCount ? `${formatNumber(data.viewCount)}回視聴` : '視聴回数不明'),
-            uploadedAt: data.publishedText || (data.published ? formatTimeAgo(data.published) : ''),
-            description: descriptionHtml ? descriptionHtml : descriptionText.replace(/\n/g, '<br />'),
-            likes: formatNumber(data.likeCount || 0),
-            dislikes: '0',
+            views: primary.view_count.text,
+            uploadedAt: primary.relative_date.text,
+            description: secondary.description.text.replace(/\n/g, '<br />'),
+            likes: formatNumber(basic.like_count),
+            dislikes: '0', // Not available in payload
             channel: channel,
             relatedVideos: relatedVideos,
         };
     } catch (error: any) {
         console.error(`Failed to fetch video details for ${videoId}:`, error);
         throw new Error(error.message || '動画詳細の取得に失敗しました。');
+    }
+}
+
+export async function getComments(videoId: string): Promise<Comment[]> {
+    try {
+        const data = await proxiedFetch(`https://xeroxapp060.vercel.app/api/comments?id=${videoId}`);
+        if (!data.comments || !Array.isArray(data.comments)) {
+            return [];
+        }
+        return data.comments;
+    } catch (error) {
+        console.error(`Failed to fetch comments for video ${videoId}:`, error);
+        return [];
     }
 }
 

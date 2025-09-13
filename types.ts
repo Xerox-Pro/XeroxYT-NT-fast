@@ -73,3 +73,19 @@ export interface Notification {
   };
   publishedAt: string;
 }
+
+export interface CommentAuthor {
+  id: string;
+  name: string;
+  thumbnails: { url: string }[];
+}
+
+export interface Comment {
+  comment_id: string;
+  text: string;
+  published_time: string;
+  author: CommentAuthor;
+  like_count: string;
+  reply_count: string;
+  is_pinned: boolean;
+}

@@ -1,17 +1,20 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getVideoDetails, getPlayerConfig } from '../utils/api';
-import type { VideoDetails, Video } from '../types';
+import { getVideoDetails, getPlayerConfig, getComments } from '../utils/api';
+import type { VideoDetails, Video, Comment } from '../types';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useHistory } from '../contexts/HistoryContext';
 import VideoPlayerPageSkeleton from '../components/skeletons/VideoPlayerPageSkeleton';
 import RelatedVideoCard from '../components/RelatedVideoCard';
 import PlaylistModal from '../components/PlaylistModal';
+import CommentComponent from '../components/Comment';
 import { LikeIcon, DislikeIcon, ShareIcon, SaveIcon } from '../components/icons/Icons';
 
 const VideoPlayerPage: React.FC = () => {
     const { videoId } = useParams<{ videoId: string }>();
     const [videoDetails, setVideoDetails] = useState<VideoDetails | null>(null);
+    const [comments, setComments] = useState<Comment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
@@ -29,16 +32,22 @@ const VideoPlayerPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const fetchDetails = async () => {
+        const fetchDetailsAndComments = async () => {
             if (!videoId) return;
             setIsLoading(true);
             setError(null);
             setVideoDetails(null);
+            setComments([]);
             window.scrollTo(0, 0);
 
             try {
-                const details = await getVideoDetails(videoId);
+                const detailsPromise = getVideoDetails(videoId);
+                const commentsPromise = getComments(videoId);
+                
+                const [details, commentsData] = await Promise.all([detailsPromise, commentsPromise]);
+                
                 setVideoDetails(details);
+                setComments(commentsData);
                 addVideoToHistory(details);
             } catch (err: any) {
                 setError(err.message || '動画の読み込みに失敗しました。');
@@ -48,7 +57,7 @@ const VideoPlayerPage: React.FC = () => {
             }
         };
 
-        fetchDetails();
+        fetchDetailsAndComments();
     }, [videoId, addVideoToHistory]);
 
     if (isLoading || playerParams === null) {
@@ -177,6 +186,14 @@ const VideoPlayerPage: React.FC = () => {
                     <button className="font-semibold text-sm mt-2">
                         {isDescriptionExpanded ? '一部を表示' : 'もっと見る'}
                     </button>
+                </div>
+                 <div className="mt-6">
+                    <h2 className="text-xl font-bold">{comments.length.toLocaleString()}件のコメント</h2>
+                    <div className="mt-4">
+                        {comments.map(comment => (
+                            <CommentComponent key={comment.comment_id} comment={comment} />
+                        ))}
+                    </div>
                 </div>
             </div>
             
