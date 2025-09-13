@@ -14,7 +14,6 @@ import { LikeIcon, SaveIcon } from '../components/icons/Icons';
 
 const VideoPlayerPage: React.FC = () => {
     const { videoId } = useParams<{ videoId: string }>();
-    // FIX: Destructure setSearchParams from useSearchParams to update URL parameters.
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const playlistId = searchParams.get('list');
@@ -53,13 +52,32 @@ const VideoPlayerPage: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const fetchDetailsAndPlaylist = async () => {
+        const fetchPlaylistVideos = async () => {
+            if (currentPlaylist) {
+                if (currentPlaylist.videoIds.length > 0) {
+                    const fetchedVideos = await getVideosByIds(currentPlaylist.videoIds);
+                    const videoMap = new Map(fetchedVideos.map(v => [v.id, v]));
+                    const orderedVideos = currentPlaylist.videoIds.map(id => videoMap.get(id)).filter((v): v is Video => !!v);
+                    setPlaylistVideos(orderedVideos);
+                } else {
+                    setPlaylistVideos([]);
+                }
+            } else {
+                 setPlaylistVideos([]);
+            }
+        };
+
+        fetchPlaylistVideos();
+    }, [currentPlaylist]);
+
+    useEffect(() => {
+        const fetchVideoData = async () => {
             if (!videoId) return;
+            
             setIsLoading(true);
             setError(null);
             setVideoDetails(null);
             setComments([]);
-            setPlaylistVideos([]);
             window.scrollTo(0, 0);
 
             try {
@@ -72,16 +90,6 @@ const VideoPlayerPage: React.FC = () => {
                 setComments(commentsData);
                 addVideoToHistory(details);
 
-                if (currentPlaylist) {
-                    if (currentPlaylist.videoIds.length > 0) {
-                        const fetchedVideos = await getVideosByIds(currentPlaylist.videoIds);
-                        const videoMap = new Map(fetchedVideos.map(v => [v.id, v]));
-                        const orderedVideos = currentPlaylist.videoIds.map(id => videoMap.get(id)).filter((v): v is Video => !!v);
-                        setPlaylistVideos(orderedVideos);
-                    } else {
-                        setPlaylistVideos([]);
-                    }
-                }
             } catch (err: any) {
                 setError(err.message || '動画の読み込みに失敗しました。');
                 console.error(err);
@@ -90,8 +98,8 @@ const VideoPlayerPage: React.FC = () => {
             }
         };
 
-        fetchDetailsAndPlaylist();
-    }, [videoId, addVideoToHistory, currentPlaylist]);
+        fetchVideoData();
+    }, [videoId, addVideoToHistory]);
 
     const shuffledPlaylistVideos = useMemo(() => {
         if (!isShuffle || playlistVideos.length === 0) return playlistVideos;
