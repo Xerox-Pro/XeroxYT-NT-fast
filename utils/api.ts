@@ -1,5 +1,33 @@
 import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, ChannelBadge } from '../types';
 
+let embedKeyCache: string | null = null;
+
+export const getEmbedUrlKey = async (): Promise<string> => {
+    if (embedKeyCache) {
+        return embedKeyCache;
+    }
+    try {
+        const response = await fetch('https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json', {
+            signal: AbortSignal.timeout(5000)
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch video config: ${response.statusText}`);
+        }
+        const config = await response.json();
+        
+        const key = config.fetchKey.replace(/&amp;/g, '&');
+
+        if (typeof key !== 'string' || !key.startsWith('?')) {
+            throw new Error('Invalid fetchKey in video config');
+        }
+        embedKeyCache = key;
+        return key;
+    } catch (error) {
+        console.error('Error fetching embed URL key:', error);
+        return '?autoplay=1&rel=0';
+    }
+};
+
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
 const INSTANCES = [
   'https://vid.puffyan.us',
