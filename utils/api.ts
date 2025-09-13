@@ -87,30 +87,6 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
   return `${Math.floor(seconds)}秒前`;
 };
 
-const parseDescriptionRuns = (runs: any[]): string => {
-    if (!runs || !Array.isArray(runs)) return '';
-    return runs.map(run => {
-        if (run.endpoint) {
-            let url = '#';
-            const payload = run.endpoint.payload;
-            if (payload?.url) {
-                const rawUrl = payload.url;
-                if (rawUrl.startsWith('/redirect?')) {
-                    const urlParams = new URLSearchParams(rawUrl.split('?')[1]);
-                    url = urlParams.get('q') || rawUrl;
-                } else {
-                    url = `https://www.youtube.com${rawUrl}`;
-                }
-            } else if (payload?.browseId) {
-                url = `/channel/${payload.browseId}`;
-            }
-            return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-yt-blue hover:underline">${run.text}</a>`;
-        }
-        return run.text && typeof run.text === 'string' ? run.text.replace(/\n/g, '<br />') : '';
-    }).join('');
-};
-
-
 // --- DATA MAPPING HELPERS ---
 const mapFVideoItemToVideo = (item: any): Video | null => {
     if (!item.id || !item.title?.text) return null;
@@ -180,67 +156,65 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-    const url = `https://xeroxapp060.vercel.app/api/video?id=${videoId}`;
-    const data = await proxiedFetch(url);
+    const url = `https://siawaseok.duckdns.org/api/video/${videoId}`;
+    try {
+        const data = await proxiedFetch(url);
 
-    if (data.playability_status?.status && data.playability_status.status !== 'OK') {
-        const reason = data.playability_status?.reason || data.playability_status?.error_screen?.reason?.text;
-        if (reason) {
-            throw new Error(reason);
+        if (!data || !data.videoId) {
+            if (data && data.error) {
+                throw new Error(data.error);
+            }
+            throw new Error('APIからの動画詳細の解析に失敗しました。データが不完全です。');
         }
-        throw new Error('この動画は現在利用できません。');
-    }
     
-    if (!data.primary_info || !data.secondary_info || !data.basic_info) {
-        throw new Error('APIからの動画詳細の解析に失敗しました。データが不完全です。');
-    }
-
-    const primary = data.primary_info;
-    const secondary = data.secondary_info;
-    const basic = data.basic_info;
-    const owner = secondary.owner?.author;
-
-    const badges: ChannelBadge[] = (owner?.badges || []).map((badge: any) => ({
-        type: badge.icon_type,
-        tooltip: badge.tooltip,
-    })).filter((b: any) => b.type && b.tooltip);
-
-    const channel: Channel = {
-        id: owner?.id || '', 
-        name: owner?.name || '不明なチャンネル',
-        avatarUrl: owner?.thumbnails?.find((t: any) => t.width > 80)?.url || owner?.thumbnails?.[0]?.url || '',
-        subscriberCount: secondary.owner?.subscriber_count?.text || '',
-        badges,
-    };
-
-    const relatedVideos: Video[] = (data.watch_next_feed || [])
-        .filter((item: any) => item.type === 'LockupView' && item.content_type === 'VIDEO' && item.content_id)
-        .map((item: any): Video | null => {
-            const metadata = item.metadata?.metadata;
-            const endScreenData = data.player_overlays?.end_screen?.results?.find((r:any) => r.id === item.content_id);
+        const channel: Channel = {
+            id: data.authorId || '',
+            name: data.author || '不明なチャンネル',
+            avatarUrl: data.authorThumbnails?.find((t: any) => t.width > 80)?.url || data.authorThumbnails?.[0]?.url || '',
+            subscriberCount: data.subCountText || '',
+            badges: [],
+        };
+    
+        const relatedVideos: Video[] = (data.recommendedVideos || []).map((item: any): Video | null => {
+            if (!item.videoId) return null;
             return {
-                id: item.content_id, thumbnailUrl: `https://i.ytimg.com/vi/${item.content_id}/hqdefault.jpg`,
-                duration: endScreenData?.duration?.text || '', isoDuration: endScreenData?.duration?.seconds ? `PT${endScreenData.duration.seconds}S` : '',
-                title: item.metadata?.title?.text || '',
-                channelName: metadata?.metadata_rows?.[0]?.metadata_parts?.[0]?.text?.text || '',
-                channelId: '', views: metadata?.metadata_rows?.[1]?.metadata_parts?.[0]?.text?.text || '',
-                channelAvatarUrl: '', uploadedAt: metadata?.metadata_rows?.[1]?.metadata_parts?.[1]?.text?.text || '',
+                id: item.videoId,
+                thumbnailUrl: `https://i.ytimg.com/vi/${item.videoId}/hqdefault.jpg`,
+                duration: formatDuration(item.lengthSeconds),
+                isoDuration: `PT${item.lengthSeconds}S`,
+                title: item.title,
+                channelName: item.author,
+                channelId: item.authorId || '',
+                channelAvatarUrl: '',
+                views: item.viewCountText || (item.viewCount ? `${formatNumber(item.viewCount)}回視聴` : ''),
+                uploadedAt: item.publishedText || '',
             };
         }).filter((v): v is Video => v !== null);
     
-    const durationSeconds = basic?.duration ?? 0;
+        const descriptionHtml = data.descriptionHtml;
+        const descriptionText = data.description || '';
     
-    return {
-        id: videoId, thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        duration: formatDuration(durationSeconds), isoDuration: `PT${durationSeconds}S`,
-        title: primary.title?.text || '無題の動画',
-        channelName: channel.name, channelId: channel.id,
-        channelAvatarUrl: channel.avatarUrl, views: primary.view_count?.text || '視聴回数不明',
-        uploadedAt: primary.relative_date?.text || primary.published?.text || '', 
-        description: parseDescriptionRuns(secondary.description?.runs) || '',
-        likes: formatNumber(basic.like_count || 0), dislikes: '0',
-        channel: channel, relatedVideos: relatedVideos,
-    };
+        return {
+            id: videoId,
+            thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+            duration: formatDuration(data.lengthSeconds),
+            isoDuration: `PT${data.lengthSeconds}S`,
+            title: data.title || '無題の動画',
+            channelName: channel.name,
+            channelId: channel.id,
+            channelAvatarUrl: channel.avatarUrl,
+            views: data.viewCountText || (data.viewCount ? `${formatNumber(data.viewCount)}回視聴` : '視聴回数不明'),
+            uploadedAt: data.publishedText || (data.published ? formatTimeAgo(data.published) : ''),
+            description: descriptionHtml ? descriptionHtml : descriptionText.replace(/\n/g, '<br />'),
+            likes: formatNumber(data.likeCount || 0),
+            dislikes: '0',
+            channel: channel,
+            relatedVideos: relatedVideos,
+        };
+    } catch (error: any) {
+        console.error(`Failed to fetch video details for ${videoId}:`, error);
+        throw new Error(error.message || '動画詳細の取得に失敗しました。');
+    }
 }
 
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
