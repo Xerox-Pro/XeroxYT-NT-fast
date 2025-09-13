@@ -87,17 +87,6 @@ export const formatTimeAgo = (unixTimestamp: number): string => {
 };
 
 // --- DATA MAPPING HELPERS ---
-const mapFVideoItemToVideo = (item: any): Video | null => {
-    if (!item.id || !item.title?.text) return null;
-    return {
-        id: item.id,
-        thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
-        duration: '', isoDuration: '', title: item.title.text,
-        channelName: item.channel, channelId: '', channelAvatarUrl: '',
-        views: item.views?.text || '視聴回数不明', uploadedAt: item.uploaded?.text || '',
-    };
-};
-
 const mapInvidiousItemToVideo = (item: any): Video | null => {
     if (!item.videoId) return null;
     return {
@@ -133,10 +122,9 @@ const mapXeroxSearchResultToVideo = (item: any): Video | null => {
 // --- EXPORTED API FUNCTIONS ---
 
 export async function getRecommendedVideos(): Promise<{videos: Video[]}> {
-  const url = `https://xeroxapp060.vercel.app/api/fvideo`;
-  const data = await proxiedFetch(url);
-  if (!data?.videos || !Array.isArray(data.videos)) throw new Error("Invalid data format from fvideo API.");
-  const videos = data.videos.map(mapFVideoItemToVideo).filter((v): v is Video => v !== null);
+  const data = await apiFetch('/trending');
+  if (!Array.isArray(data)) throw new Error("Invalid data format from trending API.");
+  const videos = data.map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
   return { videos };
 }
 
@@ -155,9 +143,8 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
-    const url = `https://siawaseok.duckdns.org/api/video/${videoId}`;
     try {
-        const data = await proxiedFetch(url);
+        const data = await apiFetch(`/videos/${videoId}`);
 
         if (!data || !data.videoId) {
             if (data && data.error) {
