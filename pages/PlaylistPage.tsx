@@ -111,12 +111,16 @@ const PlaylistPage: React.FC = () => {
                     <button onClick={handleDeletePlaylist} className="p-2 rounded-full hover:bg-yt-spec-20">
                         <TrashIcon />
                     </button>
-                    <Link to={`/watch/${videos[0].id}?list=${playlist.id}&shuffle=1`} className="p-2 rounded-full hover:bg-yt-spec-20">
-                        <ShuffleIcon />
-                    </Link>
-                    <Link to={`/watch/${videos[0].id}?list=${playlist.id}&loop=1`} className="p-2 rounded-full hover:bg-yt-spec-20">
-                        <RepeatIcon />
-                    </Link>
+                    {videos.length > 0 && (
+                        <>
+                            <Link to={`/watch/${videos[0].id}?list=${playlist.id}&shuffle=1`} className="p-2 rounded-full hover:bg-yt-spec-20">
+                                <ShuffleIcon />
+                            </Link>
+                            <Link to={`/watch/${videos[0].id}?list=${playlist.id}&loop=1`} className="p-2 rounded-full hover:bg-yt-spec-20">
+                                <RepeatIcon />
+                            </Link>
+                        </>
+                    )}
                 </div>
             </div>
             <div className="flex-1">
