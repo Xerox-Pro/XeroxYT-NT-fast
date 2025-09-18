@@ -252,40 +252,22 @@ export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
 }
 
 export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
-    const data = await proxiedFetch(`https://xeroxapp060.vercel.app/api/channel?id=${channelId}`);
-    if (!data.metadata || !data.metadata.title) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
-
-    const metadata = data.metadata;
-
-    const videoCountText = metadata.video_count || '';
-    const videoCountMatch = videoCountText.replace(/,/g, '').match(/\d+/);
-    const videoCount = videoCountMatch ? parseInt(videoCountMatch[0], 10) : 0;
-    
-    const bannerUrl = metadata.banner?.desktop?.slice(-1)[0]?.url || metadata.banner?.mobile?.slice(-1)[0]?.url;
-
+    const data = await apiFetch(`/channels/${channelId}`);
+    if (!data.authorId) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
     return {
-        id: channelId,
-        name: metadata.title,
-        avatarUrl: metadata.avatar?.slice(-1)[0]?.url,
-        subscriberCount: metadata.subscriber_count || '',
-        bannerUrl: bannerUrl,
-        description: metadata.description || '',
-        videoCount: videoCount,
-        handle: metadata.handle || metadata.title,
+        id: data.authorId, name: data.author,
+        avatarUrl: data.authorThumbnails?.find((t:any) => t.width > 150)?.url || data.authorThumbnails?.[0]?.url,
+        subscriberCount: formatNumber(data.subCount),
+        bannerUrl: data.authorBanners?.find((b: any) => b.width > 1000)?.url,
+        description: data.description, videoCount: data.videoCount, handle: data.author,
     };
 }
 
 export async function getChannelVideos(channelId: string, pageToken = '1'): Promise<{videos: Video[], nextPageToken?: string}> {
     const page = parseInt(pageToken, 10);
     const data = await apiFetch(`/channels/${channelId}/videos?page=${page}`);
-    
-    if (!Array.isArray(data.videos)) {
-       return { videos: [], nextPageToken: undefined };
-    }
-
-    const videos: Video[] = data.videos.map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
+    const videos: Video[] = (data.videos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
     const hasMore = videos.length > 0;
-
     return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
 
