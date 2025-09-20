@@ -135,6 +135,24 @@ const mapXeroxSearchResultToVideo = (item: any): Video | null => {
     };
 };
 
+export const mapXeroxChannelVideoToVideo = (item: any, channelInfo: { name: string; id: string; avatarUrl?: string }): Video | null => {
+    if (item?.type !== 'Video' || !item.id) return null;
+    const durationInSeconds = item.duration?.seconds ?? 0;
+    return {
+        id: item.id,
+        thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+        duration: item.duration?.text || '',
+        isoDuration: `PT${durationInSeconds}S`,
+        title: item.title?.text || '無題の動画',
+        channelName: channelInfo.name,
+        channelId: channelInfo.id,
+        channelAvatarUrl: channelInfo.avatarUrl || '',
+        views: item.view_count?.text || '視聴回数不明',
+        uploadedAt: item.published?.text || '',
+        descriptionSnippet: item.description_snippet?.text || '',
+    };
+};
+
 
 // --- EXPORTED API FUNCTIONS ---
 
@@ -300,6 +318,22 @@ export async function getChannelVideos(channelId: string, pageToken = '1'): Prom
     const videos: Video[] = (data.videos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
     const hasMore = videos.length > 0;
     return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
+}
+
+export async function getChannelVideosXeroxApp(channelId: string, pageToken = '1'): Promise<{videos: any[], nextPageToken?: string}> {
+    const page = parseInt(pageToken, 10);
+    const url = `https://xeroxapp060.vercel.app/api/channel?id=${encodeURIComponent(channelId)}&page=${page}`;
+    try {
+        const data = await proxiedFetch(url);
+        if (!data.videos || !Array.isArray(data.videos)) {
+            return { videos: [], nextPageToken: undefined };
+        }
+        const hasMore = data.videos.length > 0;
+        return { videos: data.videos, nextPageToken: hasMore ? String(data.page + 1) : undefined };
+    } catch (error) {
+        console.error(`Failed to fetch channel videos from xeroxapp for ${channelId}:`, error);
+        throw new Error('チャンネル動画の取得に失敗しました。');
+    }
 }
 
 export async function getChannelPlaylists(channelId: string, pageToken = '1'): Promise<{playlists: ApiPlaylist[], nextPageToken?: string}> {
