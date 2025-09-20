@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getNewChannelPageData, getChannelPlaylists, searchVideos, getPlaylistDetails, getChannelVideosXeroxApp, mapXeroxChannelVideoToVideo } from '../utils/api';
+import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos, getPlaylistDetails } from '../utils/api';
 import type { ChannelDetails, Video, ApiPlaylist, Channel } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
@@ -42,60 +42,49 @@ const ChannelPage: React.FC = () => {
 
     const [isTabLoading, setIsTabLoading] = useState(false);
     const isFetchingRef = useRef(false);
+    const prevChannelIdRef = useRef<string | undefined>(undefined);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
     const { createPlaylist } = usePlaylist();
 
     useEffect(() => {
-        const loadInitialData = async () => {
+        const loadInitialDetails = async () => {
             if (!channelId) return;
             setIsLoading(true);
             setError(null);
             try {
-                const { details } = await getNewChannelPageData(channelId);
+                const details = await getChannelDetails(channelId);
                 setChannelDetails(details);
-
-                // Reset tab data on channel change
-                setVideos([]);
-                setShorts([]);
-                setPlaylists([]);
-                setVideosPageToken(undefined);
-                setShortsPageToken(undefined);
-                setPlaylistsPageToken(undefined);
-                setActiveTab('videos');
             } catch (err: any) {
                 setError(err.message || 'チャンネルデータの読み込みに失敗しました。');
             } finally {
                 setIsLoading(false);
             }
         };
-        loadInitialData();
+        loadInitialDetails();
     }, [channelId]);
     
-    const fetchTabData = useCallback(async (tab: Tab, pageToken = '1') => {
-        if (!channelId || !channelDetails || isFetchingRef.current) return;
-
+    const fetchTabData = useCallback(async (tab: Tab, pageToken?: string) => {
+        if (!channelId || isFetchingRef.current) return;
+        
         isFetchingRef.current = true;
         setIsTabLoading(true);
 
         try {
             switch (tab) {
                 case 'videos':
-                    const vData = await getChannelVideosXeroxApp(channelId, pageToken);
-                    const mappedVideos = vData.videos
-                        .map(v => mapXeroxChannelVideoToVideo(v, channelDetails))
-                        .filter((v): v is Video => v !== null);
-                    setVideos(prev => pageToken !== '1' ? [...prev, ...mappedVideos] : mappedVideos);
+                    const vData = await getChannelVideos(channelId, pageToken);
+                    setVideos(prev => pageToken ? [...prev, ...vData.videos] : vData.videos);
                     setVideosPageToken(vData.nextPageToken);
                     break;
                 case 'shorts':
                     const sData = await searchVideos(`#shorts`, pageToken, channelId);
-                    setShorts(prev => pageToken !== '1' ? [...prev, ...sData.videos] : sData.videos);
+                    setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
                     setShortsPageToken(sData.nextPageToken);
                     break;
                 case 'playlists':
                     const pData = await getChannelPlaylists(channelId, pageToken);
-                    setPlaylists(prev => pageToken !== '1' ? [...prev, ...pData.playlists] : pData.playlists);
+                    setPlaylists(prev => pageToken ? [...prev, ...pData.playlists] : pData.playlists);
                     setPlaylistsPageToken(pData.nextPageToken);
                     break;
             }
@@ -105,30 +94,34 @@ const ChannelPage: React.FC = () => {
             setIsTabLoading(false);
             isFetchingRef.current = false;
         }
-    }, [channelId, channelDetails]);
+    }, [channelId]);
     
     useEffect(() => {
-        if (isLoading || !channelDetails) return;
-        
-        const isFirstLoadForTab = 
-            (activeTab === 'videos' && videos.length === 0) ||
-            (activeTab === 'shorts' && shorts.length === 0) ||
-            (activeTab === 'playlists' && playlists.length === 0);
+        if (!channelId) return;
 
-        if (isFirstLoadForTab) {
-            fetchTabData(activeTab, '1');
+        if (prevChannelIdRef.current !== channelId) {
+            setVideos([]);
+            setShorts([]);
+            setPlaylists([]);
+            setVideosPageToken(undefined);
+            setShortsPageToken(undefined);
+            setPlaylistsPageToken(undefined);
         }
 
-    }, [activeTab, isLoading, channelDetails, videos.length, shorts.length, playlists.length, fetchTabData]);
+        fetchTabData(activeTab);
+
+        prevChannelIdRef.current = channelId;
+
+    }, [activeTab, channelId, fetchTabData]);
 
 
-    const handleLoadMore = () => {
+    const handleLoadMore = useCallback(() => {
         switch (activeTab) {
             case 'videos': if (videosPageToken) fetchTabData('videos', videosPageToken); break;
             case 'shorts': if (shortsPageToken) fetchTabData('shorts', shortsPageToken); break;
             case 'playlists': if (playlistsPageToken) fetchTabData('playlists', playlistsPageToken); break;
         }
-    };
+    }, [activeTab, videosPageToken, shortsPageToken, playlistsPageToken, fetchTabData]);
 
     const handleSavePlaylist = async (playlist: ApiPlaylist) => {
         if (savingPlaylistId === playlist.id || !playlist.author || !playlist.authorId) return;
@@ -193,8 +186,8 @@ const ChannelPage: React.FC = () => {
                     <h1 className="text-2xl font-bold">{channelDetails.name}</h1>
                     <div className="text-sm text-yt-light-gray mt-1 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-x-2">
                         {channelDetails.handle && <span>@{channelDetails.handle}</span>}
-                        {channelDetails.subscriberCount && <span>{channelDetails.subscriberCount}</span>}
-                        {channelDetails.videoCount > 0 && <span>動画 {channelDetails.videoCount}本</span>}
+                        {channelDetails.subscriberCount && <span>チャンネル登録者数 {channelDetails.subscriberCount}人</span>}
+                        {channelDetails.videoCount != null && <span>動画 {channelDetails.videoCount}本</span>}
                     </div>
                     {channelDetails.description && (
                         <p className="text-sm text-yt-light-gray mt-2 line-clamp-2">
