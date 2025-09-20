@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos, getPlaylistDetails } from '../utils/api';
+import { getNewChannelPageData, getChannelPlaylists, searchVideos, getPlaylistDetails } from '../utils/api';
 import type { ChannelDetails, Video, ApiPlaylist, Channel } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
@@ -36,47 +36,48 @@ const ChannelPage: React.FC = () => {
     const [playlists, setPlaylists] = useState<ApiPlaylist[]>([]);
     const [savingPlaylistId, setSavingPlaylistId] = useState<string | null>(null);
 
-    const [videosPageToken, setVideosPageToken] = useState<string | undefined>(undefined);
     const [shortsPageToken, setShortsPageToken] = useState<string | undefined>(undefined);
     const [playlistsPageToken, setPlaylistsPageToken] = useState<string | undefined>(undefined);
 
     const [isTabLoading, setIsTabLoading] = useState(false);
     const isFetchingRef = useRef(false);
-    const prevChannelIdRef = useRef<string | undefined>(undefined);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
     const { createPlaylist } = usePlaylist();
 
     useEffect(() => {
-        const loadInitialDetails = async () => {
+        const loadInitialData = async () => {
             if (!channelId) return;
             setIsLoading(true);
             setError(null);
             try {
-                const details = await getChannelDetails(channelId);
+                const { details, videos: initialVideos } = await getNewChannelPageData(channelId);
                 setChannelDetails(details);
+                setVideos(initialVideos);
+
+                // Reset other tab data on channel change
+                setShorts([]);
+                setPlaylists([]);
+                setShortsPageToken(undefined);
+                setPlaylistsPageToken(undefined);
             } catch (err: any) {
                 setError(err.message || 'チャンネルデータの読み込みに失敗しました。');
             } finally {
                 setIsLoading(false);
             }
         };
-        loadInitialDetails();
+        loadInitialData();
     }, [channelId]);
     
     const fetchTabData = useCallback(async (tab: Tab, pageToken?: string) => {
         if (!channelId || isFetchingRef.current) return;
-        
+        if (tab === 'videos' && !pageToken) return; // Videos already loaded, unless paginating
+
         isFetchingRef.current = true;
         setIsTabLoading(true);
 
         try {
             switch (tab) {
-                case 'videos':
-                    const vData = await getChannelVideos(channelId, pageToken);
-                    setVideos(prev => pageToken ? [...prev, ...vData.videos] : vData.videos);
-                    setVideosPageToken(vData.nextPageToken);
-                    break;
                 case 'shorts':
                     const sData = await searchVideos(`#shorts`, pageToken, channelId);
                     setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
@@ -97,27 +98,18 @@ const ChannelPage: React.FC = () => {
     }, [channelId]);
     
     useEffect(() => {
-        if (!channelId) return;
-
-        if (prevChannelIdRef.current !== channelId) {
-            setVideos([]);
-            setShorts([]);
-            setPlaylists([]);
-            setVideosPageToken(undefined);
-            setShortsPageToken(undefined);
-            setPlaylistsPageToken(undefined);
-        }
+        if (isLoading) return;
+        if (activeTab === 'videos' && videos.length > 0) return;
+        if (activeTab === 'shorts' && shorts.length > 0) return;
+        if (activeTab === 'playlists' && playlists.length > 0) return;
 
         fetchTabData(activeTab);
 
-        prevChannelIdRef.current = channelId;
-
-    }, [activeTab, channelId, fetchTabData]);
+    }, [activeTab, isLoading, videos, shorts, playlists, fetchTabData]);
 
 
     const handleLoadMore = () => {
         switch (activeTab) {
-            case 'videos': if (videosPageToken) fetchTabData('videos', videosPageToken); break;
             case 'shorts': if (shortsPageToken) fetchTabData('shorts', shortsPageToken); break;
             case 'playlists': if (playlistsPageToken) fetchTabData('playlists', playlistsPageToken); break;
         }
@@ -140,7 +132,7 @@ const ChannelPage: React.FC = () => {
         }
     };
     
-    const lastElementRef = useInfiniteScroll(handleLoadMore, !!(videosPageToken || shortsPageToken || playlistsPageToken));
+    const lastElementRef = useInfiniteScroll(handleLoadMore, !!(shortsPageToken || playlistsPageToken));
 
     if (isLoading) return <div className="text-center p-8">読み込み中...</div>;
     if (error) return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
@@ -186,8 +178,8 @@ const ChannelPage: React.FC = () => {
                     <h1 className="text-2xl font-bold">{channelDetails.name}</h1>
                     <div className="text-sm text-yt-light-gray mt-1 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-x-2">
                         {channelDetails.handle && <span>@{channelDetails.handle}</span>}
-                        {channelDetails.subscriberCount && <span>チャンネル登録者数 {channelDetails.subscriberCount}人</span>}
-                        {channelDetails.videoCount != null && <span>動画 {channelDetails.videoCount}本</span>}
+                        {channelDetails.subscriberCount && <span>{channelDetails.subscriberCount}</span>}
+                        {channelDetails.videoCount > 0 && <span>動画 {channelDetails.videoCount}本</span>}
                     </div>
                     {channelDetails.description && (
                         <p className="text-sm text-yt-light-gray mt-2 line-clamp-2">
