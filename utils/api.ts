@@ -161,7 +161,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     try {
-        const data = await proxiedFetch(`https://xeroxyoutubeapi.vercel.app/api/video?id=${videoId}`);
+        const data = await proxiedFetch(`https://xeroxapp060.vercel.app/api/video?id=${videoId}`);
         
         if (data.playability_status?.status !== 'OK' && !data.primary_info?.title?.text) {
              throw new Error(data.playability_status?.reason || '動画は利用できません。');
@@ -231,7 +231,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 
 export async function getComments(videoId: string): Promise<Comment[]> {
     try {
-        const data = await proxiedFetch(`https://xeroxyoutubeapi.vercel.app/api/comments?id=${videoId}`);
+        const data = await proxiedFetch(`https://xeroxapp060.vercel.app/api/comments?id=${videoId}`);
         if (!data.comments || !Array.isArray(data.comments)) {
             return [];
         }
