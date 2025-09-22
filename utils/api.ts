@@ -1,3 +1,4 @@
+
 import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment, PlaylistDetails } from '../types';
 
 // 複数の安定した公開APIインスタンスをバックエンドとして使用します
@@ -122,15 +123,27 @@ const mapInvidiousItemToVideo = (item: any): Video | null => {
     };
 };
 
-const mapXeroxSearchResultToVideo = (item: any): Video | null => {
+const mapXeroxSearchResultToVideo = (item: any, channelOverride?: {name: string, id: string, avatarUrl?: string}): Video | null => {
     if (item?.type !== 'Video' || !item.id) return null;
     const durationInSeconds = item.duration?.seconds ?? 0;
+
+    const author = channelOverride 
+        ? { name: channelOverride.name, id: channelOverride.id, thumbnails: [{ url: channelOverride.avatarUrl || '' }] } 
+        : item.author;
+    
+    const thumbnailUrl = item.thumbnails?.[0]?.url?.split('?')[0] || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`;
+
     return {
-        id: item.id, thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
-        duration: item.duration?.text || '', isoDuration: `PT${durationInSeconds}S`,
-        title: item.title?.text || '無題の動画', channelName: item.author?.name || '不明なチャンネル',
-        channelId: item.author?.id || '', channelAvatarUrl: item.author?.thumbnails?.[0]?.url || '',
-        views: item.view_count?.text || '視聴回数不明', uploadedAt: item.published?.text || '',
+        id: item.id,
+        thumbnailUrl: thumbnailUrl,
+        duration: item.duration?.text || '',
+        isoDuration: `PT${durationInSeconds}S`,
+        title: item.title?.text || '無題の動画',
+        channelName: author?.name || '不明なチャンネル',
+        channelId: author?.id || '',
+        channelAvatarUrl: author?.thumbnails?.[0]?.url || '',
+        views: item.view_count?.text || '視聴回数不明',
+        uploadedAt: item.published?.text || '',
         descriptionSnippet: item.description_snippet?.text || '',
     };
 };
@@ -150,7 +163,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
   try {
     const data = await proxiedFetch(url);
     if (!Array.isArray(data)) throw new Error("Invalid data format from search API.");
-    let videos: Video[] = data.map(mapXeroxSearchResultToVideo).filter((v): v is Video => v !== null);
+    let videos: Video[] = data.map(v => mapXeroxSearchResultToVideo(v)).filter((v): v is Video => v !== null);
     if (channelId) videos = videos.filter(v => v.channelId === channelId);
     return { videos, nextPageToken: undefined };
   } catch (error) {
@@ -252,21 +265,40 @@ export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
 }
 
 export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
-    const data = await apiFetch(`/channels/${channelId}`);
-    if (!data.authorId) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
+    const url = `https://xeroxyoutubeapi.vercel.app/api/channel?id=${channelId}`;
+    const data = await proxiedFetch(url);
+    const channelData = data.channel;
+
+    if (!channelData || !channelData.name) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
     return {
-        id: data.authorId, name: data.author,
-        avatarUrl: data.authorThumbnails?.find((t:any) => t.width > 150)?.url || data.authorThumbnails?.[0]?.url,
-        subscriberCount: formatNumber(data.subCount),
-        bannerUrl: data.authorBanners?.find((b: any) => b.width > 1000)?.url,
-        description: data.description, videoCount: data.videoCount, handle: data.author,
+        id: channelId, name: channelData.name,
+        avatarUrl: channelData.avatar?.find((t:any) => t.width > 150)?.url || channelData.avatar?.[0]?.url,
+        subscriberCount: channelData.subscriberCount || '非公開',
+        bannerUrl: channelData.banner?.url,
+        description: channelData.description,
+        handle: channelData.name,
     };
 }
 
 export async function getChannelVideos(channelId: string, pageToken = '1'): Promise<{videos: Video[], nextPageToken?: string}> {
     const page = parseInt(pageToken, 10);
-    const data = await apiFetch(`/channels/${channelId}/videos?page=${page}`);
-    const videos: Video[] = (data.videos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
+    const url = `https://xeroxyoutubeapi.vercel.app/api/channel?id=${channelId}&page=${page}`;
+    const data = await proxiedFetch(url);
+    
+    if (!data.videos || !Array.isArray(data.videos)) {
+        return { videos: [], nextPageToken: undefined };
+    }
+
+    const channelInfo = {
+        id: channelId,
+        name: data.channel.name,
+        avatarUrl: data.channel.avatar?.find((t:any) => t.width > 150)?.url || data.channel.avatar?.[0]?.url,
+    };
+    
+    const videos: Video[] = data.videos
+        .map((v: any) => mapXeroxSearchResultToVideo(v, channelInfo))
+        .filter((v): v is Video => v !== null);
+    
     const hasMore = videos.length > 0;
     return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
