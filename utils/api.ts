@@ -135,8 +135,57 @@ const mapXeroxSearchResultToVideo = (item: any): Video | null => {
     };
 };
 
+export const mapXeroxChannelVideoToVideo = (item: any, channelInfo: { name: string; id: string; avatarUrl?: string }): Video | null => {
+    if (item?.type !== 'Video' || !item.id) return null;
+    const durationInSeconds = item.duration?.seconds ?? 0;
+    return {
+        id: item.id,
+        thumbnailUrl: `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+        duration: item.duration?.text || '',
+        isoDuration: `PT${durationInSeconds}S`,
+        title: item.title?.text || '無題の動画',
+        channelName: channelInfo.name,
+        channelId: channelInfo.id,
+        channelAvatarUrl: channelInfo.avatarUrl || '',
+        views: item.view_count?.text || '視聴回数不明',
+        uploadedAt: item.published?.text || '',
+        descriptionSnippet: item.description_snippet?.text || '',
+    };
+};
+
 
 // --- EXPORTED API FUNCTIONS ---
+
+export async function getNewChannelPageData(channelId: string): Promise<{ details: ChannelDetails, videos: Video[] }> {
+    const data = await proxiedFetch(`https://siawaseok.duckdns.org/api/channel/${channelId}`);
+    if (!data.channelId) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
+
+    const details: ChannelDetails = {
+        id: data.channelId,
+        name: data.title,
+        avatarUrl: data.avatar,
+        subscriberCount: data.videoCount, // This key from the new API contains subscriber count text
+        bannerUrl: data.banner || undefined,
+        description: data.description,
+        videoCount: 0, // Total video count is not available in the new API
+        handle: data.title, // Handle is not available, using title as a fallback
+    };
+
+    const videos: Video[] = data.playlists?.[0]?.items?.map((v: any): Video => ({
+        id: v.videoId,
+        thumbnailUrl: `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+        duration: v.duration,
+        isoDuration: '', // Not available in new API
+        title: v.title,
+        channelName: data.title,
+        channelId: data.channelId,
+        channelAvatarUrl: data.avatar,
+        views: v.viewCount,
+        uploadedAt: v.published,
+    })) || [];
+
+    return { details, videos };
+}
 
 export async function getRecommendedVideos(): Promise<{videos: Video[]}> {
   const data = await apiFetch('/trending');
@@ -252,53 +301,54 @@ export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
 }
 
 export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
-    const data = await proxiedFetch(`https://siawaseok.duckdns.org/api/channel/${channelId}`);
-    if (!data.channelId) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
-
-    const videosPlaylist = data.playlists?.find((p: any) => p.title === '動画');
-    const videoCount = videosPlaylist?.items?.length || 0;
-
+    const data = await apiFetch(`/channels/${channelId}`);
+    if (!data.authorId) throw new Error(`ID ${channelId} のチャンネルが見つかりません。`);
     return {
-        id: data.channelId,
-        name: data.title,
-        avatarUrl: data.avatar,
-        subscriberCount: data.videoCount, // This field from the API contains subscriber text
-        bannerUrl: data.banner || undefined,
-        description: data.description,
-        videoCount: videoCount,
-        handle: data.title,
+        id: data.authorId, name: data.author,
+        avatarUrl: data.authorThumbnails?.find((t:any) => t.width > 150)?.url || data.authorThumbnails?.[0]?.url,
+        subscriberCount: formatNumber(data.subCount),
+        bannerUrl: data.authorBanners?.find((b: any) => b.width > 1000)?.url,
+        description: data.description, videoCount: data.videoCount, handle: data.author,
     };
 }
 
 export async function getChannelVideos(channelId: string, pageToken = '1'): Promise<{videos: Video[], nextPageToken?: string}> {
     const page = parseInt(pageToken, 10);
-    const data = await proxiedFetch(`https://xeroxyoutubeapi.vercel.app/api/channel?id=${channelId}&page=${page}`);
-    if (!data.videos) {
-        return { videos: [], nextPageToken: undefined };
-    }
-    const videos: Video[] = data.videos.map(mapXeroxSearchResultToVideo).filter((v): v is Video => v !== null);
+    const data = await apiFetch(`/channels/${channelId}/videos?page=${page}`);
+    const videos: Video[] = (data.videos || []).map(mapInvidiousItemToVideo).filter((v): v is Video => v !== null);
     const hasMore = videos.length > 0;
     return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
 
+export async function getChannelVideosXeroxApp(channelId: string, pageToken = '1'): Promise<{videos: any[], nextPageToken?: string}> {
+    const page = parseInt(pageToken, 10);
+    const url = `https://xeroxapp060.vercel.app/api/channel?id=${encodeURIComponent(channelId)}&page=${page}`;
+    try {
+        const data = await proxiedFetch(url);
+        if (!data.videos || !Array.isArray(data.videos)) {
+            return { videos: [], nextPageToken: undefined };
+        }
+        const hasMore = data.videos.length > 0;
+        return { videos: data.videos, nextPageToken: hasMore ? String(data.page + 1) : undefined };
+    } catch (error) {
+        console.error(`Failed to fetch channel videos from xeroxapp for ${channelId}:`, error);
+        throw new Error('チャンネル動画の取得に失敗しました。');
+    }
+}
 
 export async function getChannelPlaylists(channelId: string, pageToken = '1'): Promise<{playlists: ApiPlaylist[], nextPageToken?: string}> {
-    // This API does not support pagination for playlists, so pageToken is ignored.
-    const data = await proxiedFetch(`https://siawaseok.duckdns.org/api/channel/${channelId}`);
-    if (!data.playlists) {
-        return { playlists: [], nextPageToken: undefined };
-    }
-    
+    const page = parseInt(pageToken, 10);
+    const data = await apiFetch(`/channels/${channelId}/playlists?page=${page}`);
     const playlists: ApiPlaylist[] = (data.playlists || []).map((item: any): ApiPlaylist => ({
         id: item.playlistId,
         title: item.title,
-        thumbnailUrl: item.items?.[0]?.videoId ? `https://i.ytimg.com/vi/${item.items[0].videoId}/hqdefault.jpg` : undefined,
-        videoCount: item.items?.length || 0,
-        author: data.title,
-        authorId: data.channelId,
+        thumbnailUrl: item.videos?.[0]?.videoId ? `https://i.ytimg.com/vi/${item.videos[0].videoId}/hqdefault.jpg` : undefined,
+        videoCount: item.videoCount,
+        author: item.author,
+        authorId: item.authorId,
     }));
-    
-    return { playlists, nextPageToken: undefined }; // No pagination support in this API
+    const hasMore = playlists.length > 0;
+    return { playlists, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
 
 export async function getPlaylistDetails(playlistId: string): Promise<PlaylistDetails> {
