@@ -2,18 +2,23 @@ import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment
 
 // Vercelプロジェクト内のAPIエンドポイントを叩くための共通フェッチャー
 const apiFetch = async (endpoint: string) => {
-    // Vercel環境では、フロントエンドからバックエンドAPIへは相対パスでアクセスできる
     const response = await fetch(`/api/${endpoint}`);
 
-    if (!response.ok) {
-        const errorResult = await response.json().catch(() => ({ error: 'Server returned a non-JSON error' }));
-        throw new Error(errorResult.error || `Request failed with status ${response.status}`);
-    }
-    // レスポンスが空の場合も考慮
     const text = await response.text();
-    return text ? JSON.parse(text) : {};
-};
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        console.error("Failed to parse JSON:", text);
+        throw new Error(`Server returned a non-JSON response for endpoint: ${endpoint}`);
+    }
 
+    if (!response.ok) {
+        throw new Error(data.error || `Request failed with status ${response.status}`);
+    }
+    
+    return data;
+};
 
 // --- HELPER FUNCTIONS (変更なし) ---
 const formatNumber = (num: number): string => {
@@ -57,54 +62,53 @@ export async function getPlayerConfig(): Promise<string> {
     }
 }
 
-// --- youtubei.jsのレスポンスをアプリの型に変換するマッピング関数 ---
+// --- youtubei.jsのレスポンスをアプリの型に安全に変換するマッピング関数 ---
 const mapYoutubeiVideoToVideo = (item: any): Video | null => {
     if (!item?.id) return null;
     return {
         id: item.id,
-        thumbnailUrl: item.thumbnails?.[0]?.url.split('?')[0] || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
-        duration: item.duration?.text || '',
-        isoDuration: `PT${item.duration?.seconds || 0}S`,
-        title: item.title?.text || item.title || '無題の動画',
-        channelName: item.author?.name || item.channel?.name || '不明なチャンネル',
-        channelId: item.author?.id || item.channel?.id || '',
-        channelAvatarUrl: item.author?.thumbnails?.[0]?.url || item.channel?.thumbnails?.[0]?.url || '',
-        views: item.view_count?.text || '視聴回数不明',
-        uploadedAt: item.published?.text || '',
-        descriptionSnippet: item.description_snippet?.text || '',
+        thumbnailUrl: item.thumbnails?.[0]?.url.split('?')[0] ?? `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+        duration: item.duration?.text ?? '',
+        isoDuration: `PT${item.duration?.seconds ?? 0}S`,
+        title: item.title?.text ?? item.title ?? '無題の動画',
+        channelName: item.author?.name ?? item.channel?.name ?? '不明なチャンネル',
+        channelId: item.author?.id ?? item.channel?.id ?? '',
+        channelAvatarUrl: item.author?.thumbnails?.[0]?.url ?? item.channel?.thumbnails?.[0]?.url ?? '',
+        views: item.view_count?.text ?? '視聴回数不明',
+        uploadedAt: item.published?.text ?? '',
+        descriptionSnippet: item.description_snippet?.text ?? '',
     };
 };
 
-// --- EXPORTED API FUNCTIONS (全面改訂) ---
+// --- EXPORTED API FUNCTIONS (データアクセスを安全な形に修正) ---
 
 export async function getRecommendedVideos(): Promise<{ videos: Video[] }> {
-    const data = await apiFetch('fvideo'); // fvideo.js を呼び出す
-    const videos = data.videos?.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) || [];
+    const data = await apiFetch('fvideo');
+    const videos = data.videos?.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) ?? [];
     return { videos };
 }
 
 export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{ videos: Video[], nextPageToken?: string }> {
-    // channelIdによる絞り込みはyoutubei.jsのsearchでは直接サポートされていないため、フロント側でフィルタリング
     const data = await apiFetch(`search?q=${encodeURIComponent(query)}&limit=100`);
-    let videos: Video[] = data.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null);
+    let videos: Video[] = Array.isArray(data) ? data.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) : [];
     if (channelId) {
         videos = videos.filter(v => v.channelId === channelId);
     }
-    return { videos, nextPageToken: undefined }; // youtubei.jsバックエンドでは継続トークンは扱わない
+    return { videos, nextPageToken: undefined };
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     const data = await apiFetch(`video?id=${videoId}`);
     
     if (data.playability_status?.status !== 'OK') {
-        throw new Error(data.playability_status?.reason || 'この動画は利用できません。');
+        throw new Error(data.playability_status?.reason ?? 'この動画は利用できません。');
     }
 
     const channel: Channel = {
-        id: data.author.id,
-        name: data.author.name,
-        avatarUrl: data.author.thumbnails?.[0]?.url || '',
-        subscriberCount: data.author.subscriber_count.pretty || '0',
+        id: data.author?.id ?? '',
+        name: data.author?.name ?? '不明なチャンネル',
+        avatarUrl: data.author?.thumbnails?.[0]?.url ?? '',
+        subscriberCount: data.author?.subscriber_count?.pretty ?? '0',
     };
 
     const relatedVideos = (data.watch_next_feed || [])
@@ -113,17 +117,17 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 
     return {
         id: videoId,
-        thumbnailUrl: data.basic_info.thumbnail?.[0]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        duration: formatDuration(data.basic_info.duration),
-        isoDuration: `PT${data.basic_info.duration}S`,
-        title: data.basic_info.title,
+        thumbnailUrl: data.basic_info?.thumbnail?.[0]?.url ?? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        duration: formatDuration(data.basic_info?.duration ?? 0),
+        isoDuration: `PT${data.basic_info?.duration ?? 0}S`,
+        title: data.basic_info?.title ?? '無題の動画',
         channelName: channel.name,
         channelId: channel.id,
         channelAvatarUrl: channel.avatarUrl,
-        views: `${formatNumber(data.basic_info.view_count)}回視聴`,
-        uploadedAt: data.metadata.published,
-        description: data.secondary_info?.description?.text?.replace(/\n/g, '<br />') || '',
-        likes: formatNumber(data.basic_info.like_count),
+        views: `${formatNumber(data.basic_info?.view_count ?? 0)}回視聴`,
+        uploadedAt: data.metadata?.published ?? '',
+        description: data.secondary_info?.description?.text?.replace(/\n/g, '<br />') ?? '',
+        likes: formatNumber(data.basic_info?.like_count ?? 0),
         dislikes: '0',
         channel: channel,
         relatedVideos: relatedVideos,
@@ -132,9 +136,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
 
 export async function getComments(videoId: string): Promise<Comment[]> {
     const data = await apiFetch(`comments?id=${videoId}`);
-    if (!data.comments || !Array.isArray(data.comments)) return [];
-    // API側で整形済みのため、そのまま型アサーションして返す
-    return data.comments as Comment[];
+    return (data.comments as Comment[]) ?? [];
 }
 
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
@@ -155,12 +157,12 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
     
     return {
         id: channelId,
-        name: channel.name || 'No Name',
+        name: channel.name ?? 'No Name',
         avatarUrl: channel.avatar?.[0]?.url,
-        subscriberCount: channel.subscriberCount || '非公開',
+        subscriberCount: channel.subscriberCount ?? '非公開',
         bannerUrl: channel.banner?.url,
-        description: channel.description || '',
-        videoCount: 0, // このAPIからは取得できないため0に設定
+        description: channel.description ?? '',
+        videoCount: 0,
         handle: channel.name,
     };
 }
@@ -168,7 +170,7 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
 export async function getChannelVideos(channelId: string, pageToken = '1'): Promise<{ videos: Video[], nextPageToken?: string }> {
     const page = parseInt(pageToken, 10);
     const data = await apiFetch(`channel?id=${channelId}&page=${page}`);
-    const videos = data.videos.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null);
+    const videos = data.videos?.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) ?? [];
     const hasMore = videos.length > 0;
     return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
@@ -179,7 +181,7 @@ export async function getChannelPlaylists(channelId: string): Promise<{ playlist
         id: item.id,
         title: item.title,
         thumbnailUrl: item.thumbnails?.[0]?.url,
-        videoCount: item.video_count || 0,
+        videoCount: item.video_count ?? 0,
         author: item.author?.name,
         authorId: item.author?.id,
     }));
@@ -194,9 +196,9 @@ export async function getPlaylistDetails(playlistId: string): Promise<PlaylistDe
     
     return {
         title: data.info.title,
-        author: data.info.author.name,
-        authorId: data.info.author.id,
-        description: data.info.description || '',
+        author: data.info.author?.name ?? '不明',
+        authorId: data.info.author?.id ?? '',
+        description: data.info.description ?? '',
         videos: videos
     };
 }
