@@ -10,7 +10,7 @@ import { PlaylistIcon, AddToPlaylistIcon } from '../components/icons/Icons';
 
 type Tab = 'videos' | 'shorts' | 'playlists';
 
-// ★★★ 無限スクロールのためのカスタムフックを定義 ★★★
+// 無限スクロールのためのカスタムフック
 const useInfiniteScroll = (callback: () => void, hasMore: boolean) => {
     const observer = useRef<IntersectionObserver | null>(null);
     const lastElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -36,7 +36,7 @@ const ChannelPage: React.FC = () => {
     const [shorts, setShorts] = useState<Video[]>([]);
     const [playlists, setPlaylists] = useState<ApiPlaylist[]>([]);
     
-    // ★★★ 無限スクロールのための状態変数を追加 ★★★
+    // 無限スクロールのための状態変数
     const [videosPageToken, setVideosPageToken] = useState<string | undefined>('1');
     const [isFetchingMore, setIsFetchingMore] = useState(false);
 
@@ -70,9 +70,8 @@ const ChannelPage: React.FC = () => {
     }, [channelId]);
     
     const fetchTabData = useCallback(async (tab: Tab, pageToken?: string) => {
-        if (!channelId) return;
+        if (!channelId || (isFetchingMore && tab === 'videos')) return;
         
-        // ページトークンがある場合は、タブ全体のローディングではなく、追加取得中フラグを立てる
         if (pageToken && pageToken !== '1') {
             setIsFetchingMore(true);
         } else {
@@ -83,7 +82,6 @@ const ChannelPage: React.FC = () => {
             switch (tab) {
                 case 'videos':
                     const vData = await getChannelVideos(channelId, pageToken);
-                    // ページトークンがあれば追記、なければ新規セット
                     setVideos(prev => pageToken && pageToken !== '1' ? [...prev, ...vData.videos] : vData.videos);
                     setVideosPageToken(vData.nextPageToken);
                     break;
@@ -107,15 +105,17 @@ const ChannelPage: React.FC = () => {
             setIsTabLoading(false);
             setIsFetchingMore(false);
         }
-    }, [channelId, shorts.length, playlists.length]);
+    }, [channelId, isFetchingMore, shorts.length, playlists.length]);
     
     useEffect(() => {
-        if (channelId && (activeTab !== 'videos' || videos.length === 0)) {
-            fetchTabData(activeTab, '1');
+        // 最初の動画タブのデータは詳細読み込み後に自動で取得
+        if (channelId && channelDetails && videos.length === 0 && activeTab === 'videos') {
+            fetchTabData('videos', '1');
+        } else if (channelId && activeTab !== 'videos') {
+            fetchTabData(activeTab);
         }
-    }, [activeTab, channelId, fetchTabData, videos.length]);
+    }, [activeTab, channelId, channelDetails, fetchTabData, videos.length]);
 
-    // ★★★ 無限スクロールのコールバック関数を定義 ★★★
     const handleLoadMore = useCallback(() => {
         if (activeTab === 'videos' && videosPageToken && !isFetchingMore) {
             fetchTabData('videos', videosPageToken);
@@ -124,41 +124,100 @@ const ChannelPage: React.FC = () => {
 
     const lastElementRef = useInfiniteScroll(handleLoadMore, !!videosPageToken);
 
-    // (handleSavePlaylist, JSXのヘッダー部分は変更なし)
-    const handleSavePlaylist = async (playlist: ApiPlaylist) => { /* ... */ };
+    const handleSavePlaylist = async (playlist: ApiPlaylist) => {
+        if (savingPlaylistId === playlist.id || !playlist.author || !playlist.authorId) return;
+        setSavingPlaylistId(playlist.id);
+        try {
+            const details = await getPlaylistDetails(playlist.id);
+            const videoIds = details.videos.map(v => v.id);
+            const playlistName = `${playlist.title}`;
+            createPlaylist(playlistName, videoIds, playlist.author, playlist.authorId);
+            alert(`プレイリスト「${playlistName}」をライブラリに保存しました。`);
+        } catch (error) {
+            console.error("Failed to save playlist:", error);
+            alert("プレイリストの保存に失敗しました。");
+        } finally {
+            setSavingPlaylistId(null);
+        }
+    };
+    
     if (isLoading) return <div className="text-center p-8">チャンネル情報を読み込み中...</div>;
     if (error && !channelDetails) return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
     if (!channelDetails) return null;
+
     const subscribed = isSubscribed(channelDetails.id);
-    const handleSubscriptionToggle = () => { /* ... */ };
-    const TabButton: React.FC<{tab: Tab, label: string}> = ({tab, label}) => ( <button onClick={() => setActiveTab(tab)} className={`...`}>{label}</button> );
-    
+    const handleSubscriptionToggle = () => {
+        if (!channelDetails.avatarUrl) return;
+        const channel: Channel = {
+            id: channelDetails.id,
+            name: channelDetails.name,
+            avatarUrl: channelDetails.avatarUrl,
+            subscriberCount: channelDetails.subscriberCount
+        };
+        if (subscribed) {
+            unsubscribe(channel.id);
+        } else {
+            subscribe(channel);
+        }
+    };
+
+    const TabButton: React.FC<{tab: Tab, label: string}> = ({tab, label}) => (
+        <button 
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 font-semibold text-sm ${activeTab === tab ? 'border-b-2 border-black dark:border-white' : 'text-yt-light-gray'}`}
+        >
+            {label}
+        </button>
+    );
+
     const renderTabContent = () => {
-        if (isTabLoading && activeTab !== 'videos') {
-            return ( <div className="grid grid-cols-1 ..."><VideoCardSkeleton/></div> );
+        const isInitialTabLoading = isTabLoading && (
+            (activeTab === 'videos' && videos.length === 0) ||
+            (activeTab === 'shorts' && shorts.length === 0) ||
+            (activeTab === 'playlists' && playlists.length === 0)
+        );
+
+        if (isInitialTabLoading) {
+            return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8 mt-8">
+                    {Array.from({ length: 10 }).map((_, index) => <VideoCardSkeleton key={index} />)}
+                </div>
+            );
         }
 
         switch (activeTab) {
             case 'videos':
-                // 最初のロード中もスケルトンを表示
-                if (isTabLoading && videos.length === 0) {
-                    return ( <div className="grid grid-cols-1 ..."><VideoCardSkeleton/></div> );
-                }
                 return videos.length > 0 ? (
                     <>
                         <VideoGrid videos={videos} isLoading={false} hideChannelInfo={true} />
-                        {/* ★★★ 監視対象の要素と、追加ロード中のインジケーターを追加 ★★★ */}
-                        <div ref={lastElementRef} className="h-10 flex justify-center items-center">
+                        <div ref={lastElementRef} className="h-20 flex justify-center items-center">
                             {isFetchingMore && <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-yt-blue"></div>}
                         </div>
                     </>
                 ) : <div className="text-center p-8">このチャンネルには動画がありません。</div>;
             case 'shorts':
-                // (変更なし)
                 return shorts.length > 0 ? <VideoGrid videos={shorts} isLoading={false} hideChannelInfo={true} /> : <div className="text-center p-8">このチャンネルにはショート動画がありません。</div>;
             case 'playlists':
-                // (変更なし)
-                return playlists.length > 0 ? ( <div className="grid ...">{playlists.map(p => ( <div key={p.id}>...</div> ))}</div> ) : <div className="text-center p-8">このチャンネルには再生リストがありません。</div>;
+                return playlists.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {playlists.map(p => (
+                            <div key={p.id} className="group relative">
+                                <Link to={`/playlist/${p.id}`}>
+                                    <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
+                                        {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-yt-gray" />}
+                                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                                            <div className="text-center text-white"><PlaylistIcon /><p className="font-semibold">{p.videoCount} 本の動画</p></div>
+                                        </div>
+                                    </div>
+                                    <h3 className="font-semibold mt-2">{p.title}</h3>
+                                </Link>
+                                <button onClick={() => handleSavePlaylist(p)} disabled={savingPlaylistId === p.id} className="absolute top-2 right-2 p-2 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50" title="ライブラリに保存">
+                                    <AddToPlaylistIcon />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : <div className="text-center p-8">このチャンネルには再生リストがありません。</div>;
             default:
                 return null;
         }
@@ -166,23 +225,35 @@ const ChannelPage: React.FC = () => {
 
     return (
         <div>
-            {/* (チャンネルヘッダー部分は変更なし) */}
-            {channelDetails.bannerUrl && ( <div className="..."><img ... /></div> )}
-            <div className="flex ...">
-                <img ... />
-                <div className="flex-1 ...">
-                    <h1 className="...">{channelDetails.name}</h1>
-                    <div className="text-sm ...">
+            {channelDetails.bannerUrl && (
+                <div className="w-full h-32 md:h-48 lg:h-56 mb-4">
+                    <img src={channelDetails.bannerUrl} alt={`${channelDetails.name} banner`} className="w-full h-full object-cover" />
+                </div>
+            )}
+            <div className="flex flex-col sm:flex-row items-center px-4 mb-6">
+                <img src={channelDetails.avatarUrl} alt={channelDetails.name} className="w-20 h-20 sm:w-32 sm:h-32 rounded-full mr-0 sm:mr-6 mb-4 sm:mb-0" />
+                <div className="flex-1 text-center sm:text-left">
+                    <h1 className="text-2xl font-bold">{channelDetails.name}</h1>
+                    <div className="text-sm text-yt-light-gray mt-1 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-x-2">
                         {channelDetails.handle && <span>@{channelDetails.handle}</span>}
                         {channelDetails.subscriberCount && channelDetails.subscriberCount !== '非公開' && <span>チャンネル登録者数 {channelDetails.subscriberCount}</span>}
                         {channelDetails.videoCount > 0 && <span>動画 {channelDetails.videoCount.toLocaleString()}本</span>}
                     </div>
-                    {channelDetails.description && ( <p className="...">{channelDetails.description.split('\n')[0]}</p> )}
+                    {channelDetails.description && (
+                        <p className="text-sm text-yt-light-gray mt-2 line-clamp-2">
+                            {channelDetails.description.split('\n')[0]}
+                        </p>
+                    )}
                 </div>
-                 <button onClick={handleSubscriptionToggle} className={`...`}>{subscribed ? '登録済み' : 'チャンネル登録'}</button>
+                 <button 
+                  onClick={handleSubscriptionToggle}
+                  className={`mt-4 sm:mt-0 font-semibold px-4 h-10 rounded-full text-sm flex items-center transform transition-transform duration-150 active:scale-95 ${subscribed ? 'bg-yt-light dark:bg-yt-dark-gray text-black dark:text-white' : 'bg-black dark:bg-white text-white dark:text-black hover:opacity-90'}`}
+                >
+                  {subscribed ? '登録済み' : 'チャンネル登録'}
+                </button>
             </div>
             
-            <div className="border-b ...">
+            <div className="border-b border-yt-spec-light-20 dark:border-yt-spec-20">
                 <nav className="flex space-x-4">
                     <TabButton tab="videos" label="動画" />
                     <TabButton tab="shorts" label="ショート" />
