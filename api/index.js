@@ -3,6 +3,7 @@ import { Innertube } from "youtubei.js";
 
 const app = express();
 
+// (CORSミドルウェアは変更なし)
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -10,7 +11,37 @@ app.use((req, res, next) => {
   next();
 });
 
-// (search, video, comments は変更なし)
+// 動画詳細 API (/api/video)
+app.get('/api/video', async (req, res) => {
+  try {
+    const youtube = await Innertube.create();
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: "Missing video id" });
+
+    const info = await youtube.getInfo(id);
+
+    // ★★★ ここが最重要の修正点 ★★★
+    // 関連動画リスト(watch_next_feed)から、純粋な動画データだけを抽出する
+    if (info.watch_next_feed) {
+      const pureVideoItems = info.watch_next_feed.filter(item => item.type === 'CompactVideo');
+      info.watch_next_feed = pureVideoItems.slice(0, 50); // 綺麗にした後で50件に制限
+    }
+
+    res.status(200).json(info);
+    
+  } catch (err) {
+    console.error('Error in /api/video:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// -------------------------------------------------------------------
+// 以下のAPIエンドポイントは、前回のコードから一切変更ありません。
+// 念のため、完全な形で再度掲載します。
+// -------------------------------------------------------------------
+
+// 検索 API (/api/search)
 app.get('/api/search', async (req, res) => {
   try {
     const youtube = await Innertube.create();
@@ -24,20 +55,13 @@ app.get('/api/search', async (req, res) => {
         videos = videos.concat(search.videos);
     }
     res.status(200).json(videos.slice(0, limitNumber));
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/search:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
-app.get('/api/video', async (req, res) => {
-  try {
-    const youtube = await Innertube.create();
-    const { id } = req.query;
-    if (!id) return res.status(400).json({ error: "Missing video id" });
-    const info = await youtube.getInfo(id);
-    if (info.watch_next_feed) {
-      info.watch_next_feed = info.watch_next_feed.slice(0, 50);
-    }
-    res.status(200).json(info);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
+
+// コメント API (/api/comments)
 app.get('/api/comments', async (req, res) => {
   try {
     const youtube = await Innertube.create();
@@ -65,7 +89,10 @@ app.get('/api/comments', async (req, res) => {
         is_pinned: c.comment?.is_pinned ?? false
       }))
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/comments:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // チャンネル詳細・動画一覧 API (/api/channel)
@@ -103,7 +130,7 @@ app.get('/api/channel', async (req, res) => {
   }
 });
 
-// ★★★ 新規追加: チャンネルのショート動画取得 API ★★★
+// チャンネルのショート動画取得 API (/api/channel-shorts)
 app.get('/api/channel-shorts', async (req, res) => {
   try {
     const youtube = await Innertube.create({ lang: "ja", location: "JP" });
@@ -118,8 +145,7 @@ app.get('/api/channel-shorts', async (req, res) => {
   }
 });
 
-
-// (channel-playlists, playlist, fvideo は変更なし)
+// チャンネルのプレイリスト一覧 API (/api/channel-playlists)
 app.get('/api/channel-playlists', async (req, res) => {
   try {
     const youtube = await Innertube.create({ lang: "ja", location: "JP" });
@@ -128,8 +154,13 @@ app.get('/api/channel-playlists', async (req, res) => {
     const channel = await youtube.getChannel(id);
     const playlists = await channel.getPlaylists();
     res.status(200).json(playlists);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/channel-playlists:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// プレイリスト詳細 API (/api/playlist)
 app.get('/api/playlist', async (req, res) => {
   try {
     const youtube = await Innertube.create({ lang: "ja", location: "JP" });
@@ -138,14 +169,22 @@ app.get('/api/playlist', async (req, res) => {
     const playlist = await youtube.getPlaylist(playlistId);
     if (!playlist.info?.id) return res.status(404).json({ error: "Playlist not found"});
     res.status(200).json(playlist);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/playlist:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// 急上昇（音楽） API (/api/fvideo)
 app.get('/api/fvideo', async (req, res) => {
   try {
     const youtube = await Innertube.create({ lang: "ja", location: "JP" });
     const trending = await youtube.getTrending("Music");
     res.status(200).json(trending);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/fvideo:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default app;
