@@ -9,11 +9,6 @@ dayjs.locale('ja');
 
 // --- HELPER FUNCTIONS ---
 
-/**
- * 数値または数値を表す文字列を、日本の単位（万、億）に変換します。
- * @param raw 変換する数値または文字列
- * @returns フォーマットされた文字列 (例: "3.5万", "1.2億")
- */
 const formatJapaneseNumber = (raw: number | string): string => {
   const num = typeof raw === 'string' ? parseInt(raw.replace(/,/g, ''), 10) : raw;
   if (isNaN(num)) return '0';
@@ -22,14 +17,8 @@ const formatJapaneseNumber = (raw: number | string): string => {
   return num.toLocaleString();
 };
 
-/**
- * "4 days ago" のような英語の相対時間を "4日前" のような日本語に変換します。
- * @param dateText 英語の相対時間文字列
- * @returns 日本語の相対時間文字列
- */
 const formatJapaneseDate = (dateText: string): string => {
   if (!dateText) return '';
-  // "Premieres" やその他のライブ関連テキストはそのまま返す
   if (!dateText.includes('ago')) {
     return dateText;
   }
@@ -37,10 +26,9 @@ const formatJapaneseDate = (dateText: string): string => {
   if (match) {
     const num = parseInt(match[1], 10);
     const unit = match[2] as 'year'|'month'|'day'|'hour'|'minute'|'second';
-    // dayjsを使って厳密な相対時間を生成
     return dayjs().subtract(num, unit).fromNow();
   }
-  return dateText; // マッチしなかった場合は原文を返す
+  return dateText;
 };
 
 const formatDuration = (totalSeconds: number): string => {
@@ -136,7 +124,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         avatarUrl: secondary?.owner?.author?.thumbnails?.[0]?.url ?? '',
         subscriberCount: secondary?.owner?.subscriber_count?.text ?? '非公開',
     };
-
+    
+    // ★★★ 修正点: バックエンドから来た綺麗なリストをそのままマッピングする ★★★
     const relatedVideos = (data.watch_next_feed || [])
         .map(mapYoutubeiVideoToVideo)
         .filter((v): v is Video => v !== null);
