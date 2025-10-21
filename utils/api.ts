@@ -1,7 +1,7 @@
 import { Innertube } from 'youtubei.js';
 import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment, PlaylistDetails } from '../types';
 
-// Innertubeのインスタンスをシングルトンで管理します
+// Innertubeインスタンスをシングルトンで管理
 let youtube: Innertube | null = null;
 const getYouTubeInstance = async () => {
     if (youtube) return youtube;
@@ -9,8 +9,7 @@ const getYouTubeInstance = async () => {
     return youtube;
 };
 
-
-// --- PROXIED FETCHER (getPlayerConfigでのみ使用) ---
+// --- PROXIED FETCHER ---
 const proxiedFetch = async (targetUrl: string) => {
     const proxyUrl = `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
     try {
@@ -19,8 +18,8 @@ const proxiedFetch = async (targetUrl: string) => {
         try {
             result = await response.json();
         } catch (e) {
-             const text = await response.text();
-             throw new Error(`Invalid JSON response from proxy. Status: ${response.status}. Body: ${text}`);
+            const text = await response.text();
+            throw new Error(`Invalid JSON response from proxy. Status: ${response.status}. Body: ${text}`);
         }
         if (!response.ok) {
             throw new Error(result.error || `Request failed: ${response.status}`);
@@ -31,71 +30,65 @@ const proxiedFetch = async (targetUrl: string) => {
     }
 };
 
-// --- HELPER FUNCTIONS ---
+// --- FORMAT HELPERS ---
 const formatNumber = (num: number): string => {
-  if (isNaN(num)) return '0';
-  if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
-  if (num >= 10_000) return `${Math.floor(num / 10_000)}万`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}千`;
-  return num.toLocaleString();
+    if (isNaN(num)) return '0';
+    if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
+    if (num >= 10_000) return `${Math.floor(num / 10_000)}万`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}千`;
+    return num.toLocaleString();
 };
 
 const formatDuration = (totalSeconds: number): string => {
-  if (isNaN(totalSeconds) || totalSeconds < 0) return "0:00";
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    if (isNaN(totalSeconds) || totalSeconds < 0) return "0:00";
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
 };
 
 export const formatTimeAgo = (unixTimestamp: number): string => {
-  // youtubei.jsが相対時間をテキストで提供するため、この関数はあまり使われなくなりますが、
-  // フォールバックとして残しておきます。
-  if (!unixTimestamp) return '';
-  const date = new Date(unixTimestamp * 1000);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (!unixTimestamp) return '';
+    const date = new Date(unixTimestamp * 1000);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  let interval = seconds / 31536000;
-  if (interval > 1) return `${Math.floor(interval)}年前`;
-  interval = seconds / 2592000;
-  if (interval > 1) return `${Math.floor(interval)}ヶ月前`;
-  interval = seconds / 86400;
-  if (interval > 1) return `${Math.floor(interval)}日前`;
-  interval = seconds / 3600;
-  if (interval > 1) return `${Math.floor(interval)}時間前`;
-  interval = seconds / 60;
-  if (interval > 1) return `${Math.floor(interval)}分前`;
-  return `${Math.floor(seconds)}秒前`;
+    let interval = seconds / 31536000;
+    if (interval > 1) return `${Math.floor(interval)}年前`;
+    interval = seconds / 2592000;
+    if (interval > 1) return `${Math.floor(interval)}ヶ月前`;
+    interval = seconds / 86400;
+    if (interval > 1) return `${Math.floor(interval)}日前`;
+    interval = seconds / 3600;
+    if (interval > 1) return `${Math.floor(interval)}時間前`;
+    interval = seconds / 60;
+    if (interval > 1) return `${Math.floor(interval)}分前`;
+    return `${Math.floor(seconds)}秒前`;
 };
 
-// --- PLAYER CONFIG FETCHER (変更なし) ---
+// --- PLAYER CONFIG ---
 let playerConfigParams: string | null = null;
 
 export async function getPlayerConfig(): Promise<string> {
-    if (playerConfigParams) {
-        return playerConfigParams;
-    }
+    if (playerConfigParams) return playerConfigParams;
     try {
         const config = await proxiedFetch('https://raw.githubusercontent.com/siawaseok3/wakame/master/video_config.json');
         if (typeof config.params !== 'string') {
-            throw new Error('Invalid player config format: "params" key is missing or not a string.');
+            throw new Error('Invalid player config format: "params" key missing');
         }
         const decodedParams = config.params.replace(/&amp;/g, '&');
         playerConfigParams = decodedParams;
         return playerConfigParams;
     } catch (error) {
-        console.error("Error fetching or parsing player config, falling back to default params:", error);
+        console.error("Error fetching player config:", error);
         return '?autoplay=1&rel=0';
     }
 }
 
-
-// --- DATA MAPPING HELPERS ---
+// --- MAP HELPERS ---
 const mapYouTubeiVideoToVideo = (item: any): Video | null => {
     if (!item?.id || (item?.type !== 'Video' && item?.type !== 'CompactVideo' && item?.type !== 'GridVideo')) return null;
     return {
@@ -113,30 +106,20 @@ const mapYouTubeiVideoToVideo = (item: any): Video | null => {
     };
 };
 
-// --- EXPORTED API FUNCTIONS (youtubei.js ver) ---
-
-export async function getRecommendedVideos(): Promise<{videos: Video[]}> {
-  const yt = await getYouTubeInstance();
-  const feed = await yt.getHomeFeed();
-  const videos = feed.videos
-    .map(mapYouTubeiVideoToVideo)
-    .filter((v): v is Video => v !== null);
-  return { videos };
+// --- EXPORTED API FUNCTIONS ---
+export async function getRecommendedVideos(): Promise<{ videos: Video[] }> {
+    const yt = await getYouTubeInstance();
+    const feed = await yt.getHomeFeed();
+    const videos = feed.videos.map(mapYouTubeiVideoToVideo).filter((v): v is Video => v !== null);
+    return { videos };
 }
 
-export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{videos: Video[], nextPageToken?: string}> {
-  const yt = await getYouTubeInstance();
-  // TODO: pageToken を使った継続取得の実装
-  const results = await yt.search(query, { type: 'video' });
-  let videos = results.videos
-    .map(mapYouTubeiVideoToVideo)
-    .filter((v): v is Video => v !== null);
-
-  if (channelId) {
-    videos = videos.filter(v => v.channelId === channelId);
-  }
-
-  return { videos, nextPageToken: results.continuation ? 'next' : undefined };
+export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{ videos: Video[], nextPageToken?: string }> {
+    const yt = await getYouTubeInstance();
+    const results = await yt.search(query, { type: 'video' });
+    let videos = results.videos.map(mapYouTubeiVideoToVideo).filter((v): v is Video => v !== null);
+    if (channelId) videos = videos.filter(v => v.channelId === channelId);
+    return { videos, nextPageToken: results.continuation ? 'next' : undefined };
 }
 
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
@@ -169,8 +152,8 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         description: data.basic_info.short_description?.replace(/\n/g, '<br />') || '',
         likes: formatNumber(data.basic_info.like_count || 0),
         dislikes: '0',
-        channel: channel,
-        relatedVideos: relatedVideos,
+        channel,
+        relatedVideos,
     };
 }
 
@@ -195,7 +178,8 @@ export async function getComments(videoId: string): Promise<Comment[]> {
 export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
     if (videoIds.length === 0) return [];
     const promises = videoIds.map(id => getVideoDetails(id).catch(err => {
-        console.error(`Failed to fetch video ${id}`, err); return null;
+        console.error(`Failed to fetch video ${id}`, err);
+        return null;
     }));
     const results = await Promise.all(promises);
     return results.filter((v): v is Video => v !== null);
@@ -216,17 +200,15 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
     };
 }
 
-export async function getChannelVideos(channelId: string, pageToken?: string): Promise<{videos: Video[], nextPageToken?: string}> {
+export async function getChannelVideos(channelId: string, pageToken?: string): Promise<{ videos: Video[], nextPageToken?: string }> {
     const yt = await getYouTubeInstance();
     const channel = await yt.getChannel(channelId);
     const videos_tab = await channel.getVideos();
-    const videos: Video[] = videos_tab.videos
-        .map(mapYouTubeiVideoToVideo)
-        .filter((v): v is Video => v !== null);
+    const videos: Video[] = videos_tab.videos.map(mapYouTubeiVideoToVideo).filter((v): v is Video => v !== null);
     return { videos, nextPageToken: videos_tab.continuation ? 'next' : undefined };
 }
 
-export async function getChannelPlaylists(channelId: string, pageToken?: string): Promise<{playlists: ApiPlaylist[], nextPageToken?: string}> {
+export async function getChannelPlaylists(channelId: string, pageToken?: string): Promise<{ playlists: ApiPlaylist[], nextPageToken?: string }> {
     const yt = await getYouTubeInstance();
     const channel = await yt.getChannel(channelId);
     const playlists_tab = await channel.getPlaylists();
@@ -244,15 +226,12 @@ export async function getChannelPlaylists(channelId: string, pageToken?: string)
 export async function getPlaylistDetails(playlistId: string): Promise<PlaylistDetails> {
     const yt = await getYouTubeInstance();
     const playlist = await yt.getPlaylist(playlistId);
-    const videos = (playlist.videos || [])
-      .map(mapYouTubeiVideoToVideo)
-      .filter((v): v is Video => v !== null);
-      
+    const videos = (playlist.videos || []).map(mapYouTubeiVideoToVideo).filter((v): v is Video => v !== null);
     return {
         title: playlist.info.title || '無題のプレイリスト',
         author: playlist.info.author?.name || '不明な作成者',
         authorId: playlist.info.author?.id || '',
         description: playlist.info.description || '',
-        videos: videos
+        videos
     };
 }
