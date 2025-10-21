@@ -9,18 +9,18 @@ const apiFetch = async (endpoint: string) => {
     try {
         data = text ? JSON.parse(text) : {};
     } catch (e) {
-        console.error("Failed to parse JSON:", text);
+        console.error("Failed to parse JSON response from endpoint:", endpoint, "Response text:", text);
         throw new Error(`Server returned a non-JSON response for endpoint: ${endpoint}`);
     }
 
     if (!response.ok) {
-        throw new Error(data.error || `Request failed with status ${response.status}`);
+        throw new Error(data.error || `Request failed for ${endpoint} with status ${response.status}`);
     }
     
     return data;
 };
 
-// --- HELPER FUNCTIONS (変更なし) ---
+// --- HELPER FUNCTIONS ---
 const formatNumber = (num: number): string => {
   if (isNaN(num)) return '0';
   if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
@@ -46,7 +46,7 @@ export const formatTimeAgo = (dateString?: string): string => {
   return dateString;
 };
 
-// --- PLAYER CONFIG FETCHER (変更なし) ---
+// --- PLAYER CONFIG FETCHER ---
 let playerConfigParams: string | null = null;
 export async function getPlayerConfig(): Promise<string> {
     if (playerConfigParams) return playerConfigParams;
@@ -62,7 +62,7 @@ export async function getPlayerConfig(): Promise<string> {
     }
 }
 
-// --- youtubei.jsのレスポンスをアプリの型に安全に変換するマッピング関数 ---
+// --- DATA MAPPING HELPERS ---
 const mapYoutubeiVideoToVideo = (item: any): Video | null => {
     if (!item?.id) return null;
     return {
@@ -80,7 +80,7 @@ const mapYoutubeiVideoToVideo = (item: any): Video | null => {
     };
 };
 
-// --- EXPORTED API FUNCTIONS (データアクセスを安全な形に修正) ---
+// --- EXPORTED API FUNCTIONS ---
 
 export async function getRecommendedVideos(): Promise<{ videos: Video[] }> {
     const data = await apiFetch('fvideo');
@@ -100,7 +100,7 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     const data = await apiFetch(`video?id=${videoId}`);
     
-    if (data.playability_status?.status !== 'OK') {
+    if (data.playability_status?.status !== 'OK' && !data.basic_info) {
         throw new Error(data.playability_status?.reason ?? 'この動画は利用できません。');
     }
 
@@ -125,7 +125,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         channelId: channel.id,
         channelAvatarUrl: channel.avatarUrl,
         views: `${formatNumber(data.basic_info?.view_count ?? 0)}回視聴`,
-        uploadedAt: data.metadata?.published ?? '',
+        uploadedAt: data.metadata?.published?.text ?? '',
         description: data.secondary_info?.description?.text?.replace(/\n/g, '<br />') ?? '',
         likes: formatNumber(data.basic_info?.like_count ?? 0),
         dislikes: '0',
