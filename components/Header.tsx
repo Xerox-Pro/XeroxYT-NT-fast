@@ -57,7 +57,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, theme, toggleTheme }) =>
         <Link to="/" className="flex items-center" aria-label="YouTubeホーム">
             <YouTubeLogo />
             <div className="hidden sm:flex items-baseline ml-1.5">
-                <span className="text-black dark:text-white text-xl font-bold tracking-tighter">XeroxYT-NT</span>
+                <span className="text-black dark:text-white text-xl font-bold tracking-tighter">XeroxYT-NTv2</span>
             </div>
         </Link>
       </div>
