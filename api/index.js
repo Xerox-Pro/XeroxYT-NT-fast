@@ -10,39 +10,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// 動画詳細 API (/api/video)
-app.get('/api/video', async (req, res) => {
-  try {
-    const youtube = await Innertube.create();
-    const { id } = req.query;
-    if (!id) return res.status(400).json({ error: "Missing video id" });
-
-    const info = await youtube.getInfo(id);
-
-    // ★★★ ここが最重要の修正点 ★★★
-    // 関連動画リスト(watch_next_feed)から、純粋な動画データ("CompactVideo" 型)だけを抽出します。
-    // これにより、プレイリストや広告などの不要なデータがフロントエンドに送られるのを防ぎます。
-    if (info.watch_next_feed) {
-      const pureVideoItems = info.watch_next_feed.filter(item => 
-        item.type === 'CompactVideo' && item.id && item.title
-      );
-      info.watch_next_feed = pureVideoItems.slice(0, 50); // 綺麗にした後で50件に制限
-    }
-
-    res.status(200).json(info);
-    
-  } catch (err) {
-    console.error('Error in /api/video:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// -------------------------------------------------------------------
-// 以下のAPIエンドポイントは、前回のコードから一切変更ありません。
-// -------------------------------------------------------------------
+// 検索 API (/api/search)
 app.get('/api/search', async (req, res) => {
   try {
-    const youtube = await Innertube.create();
+    // ★★★ 修正点: 日本語・日本地域を指定 ★★★
+    const youtube = await Innertube.create({ lang: "ja", location: "JP" });
+    
     const { q: query, limit = '50' } = req.query;
     if (!query) return res.status(400).json({ error: "Missing search query" });
     const limitNumber = parseInt(limit);
@@ -53,11 +26,43 @@ app.get('/api/search', async (req, res) => {
         videos = videos.concat(search.videos);
     }
     res.status(200).json(videos.slice(0, limitNumber));
-  } catch (err) { console.error('Error in /api/search:', err); res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/search:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+// 動画詳細 API (/api/video)
+app.get('/api/video', async (req, res) => {
+  try {
+    // ★★★ 修正点: 日本語・日本地域を指定 ★★★
+    const youtube = await Innertube.create({ lang: "ja", location: "JP" });
+
+    const { id } = req.query;
+    if (!id) return res.status(400).json({ error: "Missing video id" });
+
+    const info = await youtube.getInfo(id);
+
+    if (info.watch_next_feed) {
+      const pureVideoItems = info.watch_next_feed.filter(item => 
+        item.type === 'CompactVideo' && item.id && item.title
+      );
+      info.watch_next_feed = pureVideoItems.slice(0, 50);
+    }
+
+    res.status(200).json(info);
+  } catch (err) {
+    console.error('Error in /api/video:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// コメント API (/api/comments)
 app.get('/api/comments', async (req, res) => {
   try {
-    const youtube = await Innertube.create();
+    // ★★★ 修正点: 日本語・日本地域を指定 ★★★
+    const youtube = await Innertube.create({ lang: "ja", location: "JP" });
+
     const { id } = req.query;
     if (!id) return res.status(400).json({ error: "Missing video id" });
     const limit = 300;
@@ -69,13 +74,29 @@ app.get('/api/comments', async (req, res) => {
     }
     res.status(200).json({
       comments: allComments.slice(0, limit).map(c => ({
-        text: c.comment?.content?.text ?? null, comment_id: c.comment?.comment_id ?? null, published_time: c.comment?.published_time ?? null,
-        author: { id: c.comment?.author?.id ?? null, name: c.comment?.author?.name ?? null, thumbnails: c.comment?.author?.thumbnails ?? [] },
-        like_count: c.comment?.like_count?.toString() ?? '0', reply_count: c.comment?.reply_count?.toString() ?? '0', is_pinned: c.comment?.is_pinned ?? false
+        text: c.comment?.content?.text ?? null,
+        comment_id: c.comment?.comment_id ?? null,
+        published_time: c.comment?.published_time ?? null,
+        author: {
+          id: c.comment?.author?.id ?? null,
+          name: c.comment?.author?.name ?? null,
+          thumbnails: c.comment?.author?.thumbnails ?? [],
+        },
+        like_count: c.comment?.like_count?.toString() ?? '0',
+        reply_count: c.comment?.reply_count?.toString() ?? '0',
+        is_pinned: c.comment?.is_pinned ?? false
       }))
     });
-  } catch (err) { console.error('Error in /api/comments:', err); res.status(500).json({ error: err.message }); }
+  } catch (err) {
+    console.error('Error in /api/comments:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
+
+
+// -------------------------------------------------------------------
+// 以下のAPIは既に日本語設定済みですが、統一のためコードを再掲載します
+// -------------------------------------------------------------------
 app.get('/api/channel', async (req, res) => {
   try {
     const youtube = await Innertube.create({ lang: "ja", location: "JP" });
