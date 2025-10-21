@@ -1,6 +1,59 @@
 import type { Video, VideoDetails, Channel, ChannelDetails, ApiPlaylist, Comment, PlaylistDetails } from '../types';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ja';
+import relativeTime from 'dayjs/plugin/relativeTime';
 
-// (apiFetch, helpers, getPlayerConfig, mapYoutubeiVideoToVideo は変更なし)
+// Day.jsの日本語化と相対時間プラグインの有効化
+dayjs.extend(relativeTime);
+dayjs.locale('ja');
+
+// --- HELPER FUNCTIONS ---
+
+/**
+ * 数値または数値を表す文字列を、日本の単位（万、億）に変換します。
+ * @param raw 変換する数値または文字列
+ * @returns フォーマットされた文字列 (例: "3.5万", "1.2億")
+ */
+const formatJapaneseNumber = (raw: number | string): string => {
+  const num = typeof raw === 'string' ? parseInt(raw.replace(/,/g, ''), 10) : raw;
+  if (isNaN(num)) return '0';
+  if (num >= 100000000) return `${(num / 100000000).toFixed(1).replace('.0', '')}億`;
+  if (num >= 10000) return `${(num / 10000).toFixed(1).replace('.0', '')}万`;
+  return num.toLocaleString();
+};
+
+/**
+ * "4 days ago" のような英語の相対時間を "4日前" のような日本語に変換します。
+ * @param dateText 英語の相対時間文字列
+ * @returns 日本語の相対時間文字列
+ */
+const formatJapaneseDate = (dateText: string): string => {
+  if (!dateText) return '';
+  // "Premieres" やその他のライブ関連テキストはそのまま返す
+  if (!dateText.includes('ago')) {
+    return dateText;
+  }
+  const match = dateText.match(/(\d+)\s+(year|month|week|day|hour|minute|second)s?/);
+  if (match) {
+    const num = parseInt(match[1], 10);
+    const unit = match[2] as 'year'|'month'|'day'|'hour'|'minute'|'second';
+    // dayjsを使って厳密な相対時間を生成
+    return dayjs().subtract(num, unit).fromNow();
+  }
+  return dateText; // マッチしなかった場合は原文を返す
+};
+
+const formatDuration = (totalSeconds: number): string => {
+  if (isNaN(totalSeconds) || totalSeconds < 0) return "0:00";
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
+
+// --- API FETCHER & PLAYER CONFIG ---
+
 const apiFetch = async (endpoint: string) => {
     const response = await fetch(`/api/${endpoint}`);
     const text = await response.text();
@@ -16,25 +69,7 @@ const apiFetch = async (endpoint: string) => {
     }
     return data;
 };
-const formatNumber = (num: number): string => {
-  if (isNaN(num)) return '0';
-  if (num >= 100_000_000) return `${(num / 100_000_000).toFixed(1)}億`;
-  if (num >= 10_000) return `${Math.floor(num / 10_000)}万`;
-  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}千`;
-  return num.toLocaleString();
-};
-const formatDuration = (totalSeconds: number): string => {
-  if (isNaN(totalSeconds) || totalSeconds < 0) return "0:00";
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-export const formatTimeAgo = (dateString?: string): string => {
-  if (!dateString) return '';
-  return dateString;
-};
+
 let playerConfigParams: string | null = null;
 export async function getPlayerConfig(): Promise<string> {
     if (playerConfigParams) return playerConfigParams;
@@ -49,6 +84,8 @@ export async function getPlayerConfig(): Promise<string> {
         return '?autoplay=1&rel=0';
     }
 }
+
+// --- DATA MAPPING HELPERS ---
 const mapYoutubeiVideoToVideo = (item: any): Video | null => {
     if (!item?.id) return null;
     return {
@@ -60,17 +97,20 @@ const mapYoutubeiVideoToVideo = (item: any): Video | null => {
         channelName: item.author?.name ?? item.channel?.name ?? '不明なチャンネル',
         channelId: item.author?.id ?? item.channel?.id ?? '',
         channelAvatarUrl: item.author?.thumbnails?.[0]?.url ?? item.channel?.thumbnails?.[0]?.url ?? '',
-        views: item.view_count?.text ?? '視聴回数不明',
-        uploadedAt: item.published?.text ?? '',
+        views: item.view_count?.text ? `${formatJapaneseNumber(item.view_count.text)}回視聴` : '視聴回数不明',
+        uploadedAt: formatJapaneseDate(item.published?.text ?? ''),
         descriptionSnippet: item.description_snippet?.text ?? '',
     };
 };
-//(getRecommendedVideos, searchVideos は変更なし)
+
+// --- EXPORTED API FUNCTIONS ---
+
 export async function getRecommendedVideos(): Promise<{ videos: Video[] }> {
     const data = await apiFetch('fvideo');
     const videos = data.videos?.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) ?? [];
     return { videos };
 }
+
 export async function searchVideos(query: string, pageToken = '', channelId?: string): Promise<{ videos: Video[], nextPageToken?: string }> {
     const data = await apiFetch(`search?q=${encodeURIComponent(query)}&limit=100`);
     let videos: Video[] = Array.isArray(data) ? data.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) : [];
@@ -80,16 +120,12 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
     return { videos, nextPageToken: undefined };
 }
 
-
-// ★★★ ここからが最重要の修正点 ★★★
-
 export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     const data = await apiFetch(`video?id=${videoId}`);
     
     if (data.playability_status?.status !== 'OK' && !data.primary_info) {
         throw new Error(data.playability_status?.reason ?? 'この動画は利用できません。');
     }
-
     const primary = data.primary_info;
     const secondary = data.secondary_info;
     const basic = data.basic_info;
@@ -98,7 +134,7 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         id: secondary?.owner?.author?.id ?? '',
         name: secondary?.owner?.author?.name ?? '不明なチャンネル',
         avatarUrl: secondary?.owner?.author?.thumbnails?.[0]?.url ?? '',
-        subscriberCount: secondary?.owner?.subscriber_count?.text ?? '0',
+        subscriberCount: secondary?.owner?.subscriber_count?.text ?? '非公開',
     };
 
     const relatedVideos = (data.watch_next_feed || [])
@@ -114,10 +150,10 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
         channelName: channel.name,
         channelId: channel.id,
         channelAvatarUrl: channel.avatarUrl,
-        views: primary?.view_count?.text ?? '0回視聴',
-        uploadedAt: primary?.relative_date?.text ?? '',
+        views: primary?.view_count?.text ? `${primary.view_count.text}回視聴` : '0回視聴',
+        uploadedAt: formatJapaneseDate(primary?.relative_date?.text ?? ''),
         description: secondary?.description?.text?.replace(/\n/g, '<br />') ?? '',
-        likes: basic?.like_count?.toString() ?? '0', // 簡略化のため文字列として扱う
+        likes: formatJapaneseNumber(basic?.like_count ?? 0),
         dislikes: '0',
         channel: channel,
         relatedVideos: relatedVideos,
@@ -142,9 +178,7 @@ export async function getVideosByIds(videoIds: string[]): Promise<Video[]> {
 export async function getChannelDetails(channelId: string): Promise<ChannelDetails> {
     const data = await apiFetch(`channel?id=${channelId}`);
     const channel = data.channel;
-    
     if (!channel) throw new Error(`Channel with ID ${channelId} not found.`);
-    
     return {
         id: channelId,
         name: channel.name ?? 'No Name',
@@ -152,13 +186,11 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
         subscriberCount: channel.subscriberCount ?? '非公開',
         bannerUrl: channel.banner?.url,
         description: channel.description ?? '',
-        // ★★★ 修正点: バックエンドから来た動画本数を正しく読み取る ★★★
-        videoCount: channel.videoCount ?? 0,
+        videoCount: parseInt(channel.videoCount?.replace(/,/g, '') ?? '0'),
         handle: channel.name,
     };
 }
 
-// (getChannelVideos, getChannelPlaylists, getPlaylistDetails は変更なし)
 export async function getChannelVideos(channelId: string, pageToken = '1'): Promise<{ videos: Video[], nextPageToken?: string }> {
     const page = parseInt(pageToken, 10);
     const data = await apiFetch(`channel?id=${channelId}&page=${page}`);
@@ -166,6 +198,13 @@ export async function getChannelVideos(channelId: string, pageToken = '1'): Prom
     const hasMore = videos.length > 0;
     return { videos, nextPageToken: hasMore ? String(page + 1) : undefined };
 }
+
+export async function getChannelShorts(channelId: string): Promise<{ videos: Video[] }> {
+    const data = await apiFetch(`channel-shorts?id=${channelId}`);
+    const videos: Video[] = Array.isArray(data) ? data.map(mapYoutubeiVideoToVideo).filter((v): v is Video => v !== null) : [];
+    return { videos };
+}
+
 export async function getChannelPlaylists(channelId: string): Promise<{ playlists: ApiPlaylist[] }> {
     const data = await apiFetch(`channel-playlists?id=${channelId}`);
     const playlists: ApiPlaylist[] = (data.playlists || []).map((item: any): ApiPlaylist => ({
@@ -178,6 +217,7 @@ export async function getChannelPlaylists(channelId: string): Promise<{ playlist
     }));
     return { playlists };
 }
+
 export async function getPlaylistDetails(playlistId: string): Promise<PlaylistDetails> {
     const data = await apiFetch(`playlist?id=${playlistId}`);
     if (!data.info?.id) throw new Error(`Playlist with ID ${playlistId} not found.`);
