@@ -8,55 +8,41 @@ export default async function handler(req, res) {
       youtube = await Innertube.create({ lang: "ja", location: "JP" });
     }
 
-    const id = req.query.id;
-    const page = parseInt(req.query.page || "1");
-    const perPage = 150;
+    const { id, page = '1' } = req.query;
 
     if (!id) {
       return res.status(400).json({ error: "Missing channel id" });
     }
 
-    // チャンネル情報と動画一覧
     const channel = await youtube.getChannel(id);
-    let videosFeed = await channel.getVideos({ limit: perPage });
-
-    for (let i = 1; i < page; i++) {
-      if (videosFeed.hasNext()) {
-        videosFeed = await videosFeed.next();
+    let videosFeed = await channel.getVideos();
+    
+    // ページネーションのループを正しく修正
+    for (let i = 1; i < parseInt(page); i++) {
+      if (videosFeed.has_continuation) {
+        // feed自体を次のページのオブジェクトで更新する
+        videosFeed = await videosFeed.getContinuation();
       } else {
-        videosFeed = { videos: [] };
+        videosFeed.videos = []; // 続きがない場合は動画を空にする
         break;
-      }
-    }
-
-    // 登録者数を補完：最初の動画から取得
-    let subscriberCount = channel.subscriber_count || null;
-    if (!subscriberCount && videosFeed.videos.length > 0) {
-      try {
-        const firstVideoId = videosFeed.videos[0].id;
-        const videoInfo = await youtube.getInfo(firstVideoId);
-        subscriberCount =
-          videoInfo?.basic_info?.author?.subscriber_count ||
-          videoInfo?.author?.subscriber_count ||
-          null;
-      } catch (e) {
-        console.warn("Could not fetch subscriber count from video:", e.message);
       }
     }
 
     res.status(200).json({
       channel: {
         id: channel.id,
-        name: channel.metadata?.title || channel.name || null,
+        name: channel.metadata?.title || null,
         description: channel.metadata?.description || null,
         avatar: channel.metadata?.avatar || null,
         banner: channel.metadata?.banner || null,
-        subscriberCount
+        subscriberCount: channel.metadata?.subscriber_count?.pretty || '非公開'
       },
-      page,
+      page: parseInt(page),
       videos: videosFeed.videos || []
     });
+
   } catch (err) {
+    console.error('Error in /api/channel:', err);
     res.status(500).json({ error: err.message });
   }
 }
