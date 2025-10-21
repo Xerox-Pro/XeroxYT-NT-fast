@@ -19,27 +19,32 @@ app.get('/api/video', async (req, res) => {
 
     const info = await youtube.getInfo(id);
 
-    // ★★★ これが最重要の修正点です ★★★
-    // バックエンドでのフィルタリングを完全にやめ、生のデータをそのまま渡します。
-    // これにより、フロントエンドが責任を持ってデータを処理できるようになります。
+    // ★★★ これが最重要の修正点です (ご提示いただいたロジックを実装) ★★★
 
-    // 1. 関連動画リストのソースを特定します。
+    // 1. 関連動画リストのソースを、優先順位に従って特定します。
     let relatedFeedSource = [];
-    if (Array.isArray(info.watch_next_feed) && info.watch_next_feed.length > 0) {
-      relatedFeedSource = info.watch_next_feed;
-    } else if (Array.isArray(info.related_videos) && info.related_videos.length > 0) {
+    if (Array.isArray(info.related_videos) && info.related_videos.length > 0) {
       relatedFeedSource = info.related_videos;
+    } else if (Array.isArray(info.watch_next_feed) && info.watch_next_feed.length > 0) {
+      relatedFeedSource = info.watch_next_feed;
     } else if (Array.isArray(info.secondary_info?.watch_next_feed) && info.secondary_info.watch_next_feed.length > 0) {
       relatedFeedSource = info.secondary_info.watch_next_feed;
     }
+
+    // 2. 特定したソースから、純粋な動画データだけを抽出します。
+    //    動画ID(11桁の文字列)とタイトルを持つ項目のみを対象とします。
+    const pureVideoItems = relatedFeedSource.filter(item =>
+      item && typeof item.id === 'string' && item.id.length === 11 && item.title
+    );
+
+    // 3. フロントエンドが期待する `watch_next_feed` プロパティに、
+    //    綺麗になった動画リストをご希望の100件格納します。
+    info.watch_next_feed = pureVideoItems.slice(0, 100);
     
-    // 2. フロントエンドが期待する `watch_next_feed` プロパティに、生のリストを格納します。
-    info.watch_next_feed = relatedFeedSource;
-    
-    // (念のため、他のプロパティを空にしておきます)
+    // (念のため、他の可能性のあったプロパティを空にして、データの重複を防ぎます)
     if (info.related_videos) info.related_videos = [];
     if (info.secondary_info?.watch_next_feed) info.secondary_info.watch_next_feed = [];
-    
+
     res.status(200).json(info);
     
   } catch (err) {
