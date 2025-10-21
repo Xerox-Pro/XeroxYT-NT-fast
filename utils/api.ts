@@ -100,13 +100,13 @@ const mapYouTubeiVideoToVideo = (item: any): Video | null => {
     if (!item?.id || (item?.type !== 'Video' && item?.type !== 'CompactVideo' && item?.type !== 'GridVideo')) return null;
     return {
         id: item.id,
-        thumbnailUrl: item.thumbnails?.?.url || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
+        thumbnailUrl: item.thumbnails?.[0]?.url || `https://i.ytimg.com/vi/${item.id}/hqdefault.jpg`,
         duration: item.duration?.text || '',
         isoDuration: `PT${item.duration?.seconds}S`,
         title: item.title?.text || '無題の動画',
         channelName: item.author?.name || '不明なチャンネル',
         channelId: item.author?.id || '',
-        channelAvatarUrl: item.author?.thumbnails?.?.url || '',
+        channelAvatarUrl: item.author?.thumbnails?.[0]?.url || '',
         views: item.view_count?.text || '視聴回数不明',
         uploadedAt: item.published?.text || '',
         descriptionSnippet: item.description_snippet?.text || '',
@@ -131,11 +131,11 @@ export async function searchVideos(query: string, pageToken = '', channelId?: st
   let videos = results.videos
     .map(mapYouTubeiVideoToVideo)
     .filter((v): v is Video => v !== null);
-    
+
   if (channelId) {
     videos = videos.filter(v => v.channelId === channelId);
   }
-  
+
   return { videos, nextPageToken: results.continuation ? 'next' : undefined };
 }
 
@@ -146,18 +146,18 @@ export async function getVideoDetails(videoId: string): Promise<VideoDetails> {
     const channel: Channel = {
         id: data.basic_info.channel?.id || '',
         name: data.basic_info.channel?.name || '不明なチャンネル',
-        avatarUrl: data.basic_info.channel?.thumbnails?.?.url || '',
+        avatarUrl: data.basic_info.channel?.thumbnails?.[0]?.url || '',
         subscriberCount: data.channel?.subscriber_count?.text || '非公開',
         badges: data.channel?.badges?.map((b: any) => ({ type: b.style, tooltip: b.tooltip })) || [],
     };
 
     const relatedVideos: Video[] = data.watch_next_feed
-        .map((item: any) => mapYouTubeiVideoToVideo(item.videos?. || item))
+        .map((item: any) => mapYouTubeiVideoToVideo(item.videos?.[0] || item))
         .filter((v): v is Video => v !== null);
 
     return {
         id: videoId,
-        thumbnailUrl: data.basic_info.thumbnail?.?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        thumbnailUrl: data.basic_info.thumbnail?.[0]?.url || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
         duration: formatDuration(data.basic_info.duration || 0),
         isoDuration: `PT${data.basic_info.duration || 0}S`,
         title: data.basic_info.title || '無題の動画',
@@ -207,9 +207,9 @@ export async function getChannelDetails(channelId: string): Promise<ChannelDetai
     return {
         id: channel.id,
         name: channel.header?.author.name || '不明なチャンネル',
-        avatarUrl: channel.header?.author.thumbnails?..url,
+        avatarUrl: channel.header?.author.thumbnails?.[0]?.url,
         subscriberCount: channel.header?.subscriber_count.text || '非公開',
-        bannerUrl: channel.header?.banner?..url,
+        bannerUrl: channel.header?.banner?.[0]?.url,
         description: channel.header?.description.text || '',
         videoCount: parseInt(channel.header?.videos_count.text?.replace(/,/g, '') || '0', 10),
         handle: channel.header?.handle?.text,
@@ -233,7 +233,7 @@ export async function getChannelPlaylists(channelId: string, pageToken?: string)
     const playlists: ApiPlaylist[] = (playlists_tab.playlists || []).map((item: any): ApiPlaylist => ({
         id: item.id,
         title: item.title.text,
-        thumbnailUrl: item.thumbnails?.?.url,
+        thumbnailUrl: item.thumbnails?.[0]?.url,
         videoCount: item.video_count,
         author: channel.header?.author.name,
         authorId: channel.id,
