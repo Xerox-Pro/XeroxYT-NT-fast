@@ -13,7 +13,8 @@
     "react": "^19.1.1",
     "react-router-dom": "^6.25.1",
     "uuid": "^13.0.0",
-    "youtubei": "^5.2.0" // youtubei.js を追加
+    "youtubei": "^5.2.0" 
+    
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
