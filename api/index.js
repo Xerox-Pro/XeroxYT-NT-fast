@@ -20,16 +20,31 @@ app.get('/api/video', async (req, res) => {
     const info = await youtube.getInfo(id);
 
     // ★★★ これが最重要の修正点です ★★★
-    // 関連動画リスト(watch_next_feed)から、純粋な動画データだけを抽出します。
-    // 'CompactVideo' 型に限定せず、動画ID(id)とタイトル(title)を持つすべての項目を対象にすることで、
-    // より多くの関連動画を確実に捉えます。
-    if (info.watch_next_feed) {
-      const pureVideoItems = info.watch_next_feed.filter(item => 
-        item.id && item.title && typeof item.id === 'string' && item.id.length === 11
-      );
-      // ご希望の100件に修正します。
-      info.watch_next_feed = pureVideoItems.slice(0, 100);
+
+    // 1. 関連動画リストのソースを特定します。
+    //    info.watch_next_feed, info.related_videos など、複数の可能性を考慮します。
+    let relatedFeedSource = [];
+    if (Array.isArray(info.watch_next_feed) && info.watch_next_feed.length > 0) {
+      relatedFeedSource = info.watch_next_feed;
+    } else if (Array.isArray(info.related_videos) && info.related_videos.length > 0) {
+      relatedFeedSource = info.related_videos;
+    } else if (Array.isArray(info.secondary_info?.watch_next_feed) && info.secondary_info.watch_next_feed.length > 0) {
+      relatedFeedSource = info.secondary_info.watch_next_feed;
     }
+
+    // 2. 特定したソースから、純粋な動画データだけを抽出します。
+    //    動画ID(11桁の文字列)とタイトルを持つ項目のみを対象とします。
+    const pureVideoItems = relatedFeedSource.filter(item =>
+      item && typeof item.id === 'string' && item.id.length === 11 && item.title
+    );
+
+    // 3. フロントエンドが期待する `watch_next_feed` プロパティに、
+    //    綺麗になった動画リストをご希望の100件格納します。
+    info.watch_next_feed = pureVideoItems.slice(0, 100);
+    
+    // (念のため、他の可能性のあったプロパティを空にしておきます)
+    if (info.related_videos) info.related_videos = [];
+    if (info.secondary_info?.watch_next_feed) info.secondary_info.watch_next_feed = [];
 
     res.status(200).json(info);
     
