@@ -10,7 +10,6 @@ import { PlaylistIcon, AddToPlaylistIcon } from '../components/icons/Icons';
 
 type Tab = 'videos' | 'shorts' | 'playlists';
 
-// 無限スクロールのためのカスタムフック
 const useInfiniteScroll = (callback: () => void, hasMore: boolean) => {
     const observer = useRef<IntersectionObserver | null>(null);
     const lastElementRef = useCallback((node: HTMLDivElement | null) => {
@@ -36,7 +35,6 @@ const ChannelPage: React.FC = () => {
     const [shorts, setShorts] = useState<Video[]>([]);
     const [playlists, setPlaylists] = useState<ApiPlaylist[]>([]);
     
-    // 無限スクロールのための状態変数
     const [videosPageToken, setVideosPageToken] = useState<string | undefined>('1');
     const [isFetchingMore, setIsFetchingMore] = useState(false);
 
@@ -54,7 +52,7 @@ const ChannelPage: React.FC = () => {
             setVideos([]);
             setShorts([]);
             setPlaylists([]);
-            setVideosPageToken('1'); // ページトークンをリセット
+            setVideosPageToken('1');
             setActiveTab('videos');
             try {
                 const details = await getChannelDetails(channelId);
@@ -108,13 +106,14 @@ const ChannelPage: React.FC = () => {
     }, [channelId, isFetchingMore, shorts.length, playlists.length]);
     
     useEffect(() => {
-        // 最初の動画タブのデータは詳細読み込み後に自動で取得
-        if (channelId && channelDetails && videos.length === 0 && activeTab === 'videos') {
-            fetchTabData('videos', '1');
-        } else if (channelId && activeTab !== 'videos') {
-            fetchTabData(activeTab);
+        if (channelId && !isLoading) { // Ensure channel details are loaded before fetching tab data
+            if (activeTab === 'videos' && videos.length === 0) {
+                fetchTabData('videos', '1');
+            } else if (activeTab !== 'videos') {
+                fetchTabData(activeTab);
+            }
         }
-    }, [activeTab, channelId, channelDetails, fetchTabData, videos.length]);
+    }, [activeTab, channelId, isLoading, fetchTabData, videos.length]);
 
     const handleLoadMore = useCallback(() => {
         if (activeTab === 'videos' && videosPageToken && !isFetchingMore) {
@@ -130,9 +129,8 @@ const ChannelPage: React.FC = () => {
         try {
             const details = await getPlaylistDetails(playlist.id);
             const videoIds = details.videos.map(v => v.id);
-            const playlistName = `${playlist.title}`;
-            createPlaylist(playlistName, videoIds, playlist.author, playlist.authorId);
-            alert(`プレイリスト「${playlistName}」をライブラリに保存しました。`);
+            createPlaylist(playlist.title, videoIds, playlist.author, playlist.authorId);
+            alert(`プレイリスト「${playlist.title}」をライブラリに保存しました。`);
         } catch (error) {
             console.error("Failed to save playlist:", error);
             alert("プレイリストの保存に失敗しました。");
