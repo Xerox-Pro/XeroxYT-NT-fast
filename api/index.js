@@ -4,7 +4,7 @@ import { Innertube } from "youtubei.js";
 // Expressアプリを初期化
 const app = express();
 
-// CORSを許可するミドルウェア（念のため）
+// CORSを許可するミドルウェア
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -106,7 +106,8 @@ app.get('/api/channel', async (req, res) => {
         description: channel.metadata?.description || null,
         avatar: channel.metadata?.avatar || null,
         banner: channel.metadata?.banner || null,
-        subscriberCount: channel.metadata?.subscriber_count?.pretty || '非公開'
+        subscriberCount: channel.metadata?.subscriber_count?.pretty || '非公開',
+        videoCount: channel.metadata?.videos_count ?? 0
       },
       page: parseInt(page),
       videos: videosFeed.videos || []
