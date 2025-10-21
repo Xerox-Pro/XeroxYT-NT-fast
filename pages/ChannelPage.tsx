@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getChannelDetails, getChannelVideos, getChannelPlaylists, searchVideos, getPlaylistDetails } from '../utils/api';
+import { getChannelDetails, getChannelVideos, getChannelPlaylists, getPlaylistDetails, getChannelShorts } from '../utils/api';
 import type { ChannelDetails, Video, ApiPlaylist, Channel } from '../types';
 import VideoGrid from '../components/VideoGrid';
 import VideoCardSkeleton from '../components/icons/VideoCardSkeleton';
@@ -8,21 +8,7 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import { usePlaylist } from '../contexts/PlaylistContext';
 import { PlaylistIcon, AddToPlaylistIcon } from '../components/icons/Icons';
 
-type Tab = 'home' | 'videos' | 'shorts' | 'playlists';
-
-const useInfiniteScroll = (callback: () => void, hasMore: boolean) => {
-    const observer = useRef<IntersectionObserver | null>(null);
-    const lastElementRef = useCallback((node: HTMLDivElement | null) => {
-        if (observer.current) observer.current.disconnect();
-        observer.current = new IntersectionObserver(entries => {
-            if (entries[0].isIntersecting && hasMore) {
-                callback();
-            }
-        });
-        if (node) observer.current.observe(node);
-    }, [callback, hasMore]);
-    return lastElementRef;
-};
+type Tab = 'videos' | 'shorts' | 'playlists';
 
 const ChannelPage: React.FC = () => {
     const { channelId } = useParams<{ channelId: string }>();
@@ -36,13 +22,7 @@ const ChannelPage: React.FC = () => {
     const [playlists, setPlaylists] = useState<ApiPlaylist[]>([]);
     const [savingPlaylistId, setSavingPlaylistId] = useState<string | null>(null);
 
-    const [videosPageToken, setVideosPageToken] = useState<string | undefined>(undefined);
-    const [shortsPageToken, setShortsPageToken] = useState<string | undefined>(undefined);
-    const [playlistsPageToken, setPlaylistsPageToken] = useState<string | undefined>(undefined);
-
     const [isTabLoading, setIsTabLoading] = useState(false);
-    const isFetchingRef = useRef(false);
-    const prevChannelIdRef = useRef<string | undefined>(undefined);
     
     const { isSubscribed, subscribe, unsubscribe } = useSubscription();
     const { createPlaylist } = usePlaylist();
@@ -52,11 +32,16 @@ const ChannelPage: React.FC = () => {
             if (!channelId) return;
             setIsLoading(true);
             setError(null);
+            setVideos([]);
+            setShorts([]);
+            setPlaylists([]);
+            setActiveTab('videos');
             try {
                 const details = await getChannelDetails(channelId);
                 setChannelDetails(details);
             } catch (err: any) {
                 setError(err.message || 'チャンネルデータの読み込みに失敗しました。');
+                console.error(err);
             } finally {
                 setIsLoading(false);
             }
@@ -64,64 +49,44 @@ const ChannelPage: React.FC = () => {
         loadInitialDetails();
     }, [channelId]);
     
-    const fetchTabData = useCallback(async (tab: Tab, pageToken?: string) => {
-        if (!channelId || isFetchingRef.current) return;
-        
-        isFetchingRef.current = true;
+    const fetchTabData = useCallback(async (tab: Tab) => {
+        if (!channelId || isTabLoading) return;
         setIsTabLoading(true);
 
         try {
             switch (tab) {
                 case 'videos':
-                    const vData = await getChannelVideos(channelId, pageToken);
-                    setVideos(prev => pageToken ? [...prev, ...vData.videos] : vData.videos);
-                    setVideosPageToken(vData.nextPageToken);
+                    if (videos.length === 0) {
+                        const vData = await getChannelVideos(channelId);
+                        setVideos(vData.videos);
+                    }
                     break;
                 case 'shorts':
-                    const sData = await searchVideos(`#shorts`, pageToken, channelId);
-                    setShorts(prev => pageToken ? [...prev, ...sData.videos] : sData.videos);
-                    setShortsPageToken(sData.nextPageToken);
+                     if (shorts.length === 0) {
+                        const sData = await getChannelShorts(channelId);
+                        setShorts(sData.videos);
+                    }
                     break;
                 case 'playlists':
-                    const pData = await getChannelPlaylists(channelId, pageToken);
-                    setPlaylists(prev => pageToken ? [...prev, ...pData.playlists] : pData.playlists);
-                    setPlaylistsPageToken(pData.nextPageToken);
+                    if (playlists.length === 0) {
+                        const pData = await getChannelPlaylists(channelId);
+                        setPlaylists(pData.playlists);
+                    }
                     break;
             }
         } catch (err) {
             console.error(`Failed to load ${tab}`, err);
+            setError(`[${tab}] タブの読み込みに失敗しました。`);
         } finally {
             setIsTabLoading(false);
-            isFetchingRef.current = false;
         }
-    }, [channelId]);
+    }, [channelId, isTabLoading, videos.length, shorts.length, playlists.length]);
     
     useEffect(() => {
-        if (!channelId) return;
-
-        if (prevChannelIdRef.current !== channelId) {
-            setVideos([]);
-            setShorts([]);
-            setPlaylists([]);
-            setVideosPageToken(undefined);
-            setShortsPageToken(undefined);
-            setPlaylistsPageToken(undefined);
+        if (channelId) {
+            fetchTabData(activeTab);
         }
-
-        fetchTabData(activeTab);
-
-        prevChannelIdRef.current = channelId;
-
     }, [activeTab, channelId, fetchTabData]);
-
-
-    const handleLoadMore = useCallback(() => {
-        switch (activeTab) {
-            case 'videos': if (videosPageToken) fetchTabData('videos', videosPageToken); break;
-            case 'shorts': if (shortsPageToken) fetchTabData('shorts', shortsPageToken); break;
-            case 'playlists': if (playlistsPageToken) fetchTabData('playlists', playlistsPageToken); break;
-        }
-    }, [activeTab, videosPageToken, shortsPageToken, playlistsPageToken, fetchTabData]);
 
     const handleSavePlaylist = async (playlist: ApiPlaylist) => {
         if (savingPlaylistId === playlist.id || !playlist.author || !playlist.authorId) return;
@@ -140,23 +105,19 @@ const ChannelPage: React.FC = () => {
         }
     };
     
-    const lastElementRef = useInfiniteScroll(handleLoadMore, !!(videosPageToken || shortsPageToken || playlistsPageToken));
-
-    if (isLoading) return <div className="text-center p-8">読み込み中...</div>;
-    if (error) return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
+    if (isLoading) return <div className="text-center p-8">チャンネル情報を読み込み中...</div>;
+    if (error && !channelDetails) return <div className="text-center text-red-500 bg-red-100 dark:bg-red-900/50 p-4 rounded-lg">{error}</div>;
     if (!channelDetails) return null;
 
     const subscribed = isSubscribed(channelDetails.id);
     const handleSubscriptionToggle = () => {
         if (!channelDetails.avatarUrl) return;
-
         const channel: Channel = {
             id: channelDetails.id,
             name: channelDetails.name,
             avatarUrl: channelDetails.avatarUrl,
             subscriberCount: channelDetails.subscriberCount
         };
-
         if (subscribed) {
             unsubscribe(channel.id);
         } else {
@@ -171,7 +132,47 @@ const ChannelPage: React.FC = () => {
         >
             {label}
         </button>
-    )
+    );
+
+    const renderTabContent = () => {
+        if (isTabLoading) {
+            return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-x-4 gap-y-8 mt-8">
+                    {Array.from({ length: 10 }).map((_, index) => <VideoCardSkeleton key={index} />)}
+                </div>
+            );
+        }
+
+        switch (activeTab) {
+            case 'videos':
+                return videos.length > 0 ? <VideoGrid videos={videos} isLoading={false} hideChannelInfo={true} /> : <div className="text-center p-8">このチャンネルには動画がありません。</div>;
+            case 'shorts':
+                return shorts.length > 0 ? <VideoGrid videos={shorts} isLoading={false} hideChannelInfo={true} /> : <div className="text-center p-8">このチャンネルにはショート動画がありません。</div>;
+            case 'playlists':
+                return playlists.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {playlists.map(p => (
+                            <div key={p.id} className="group relative">
+                                <Link to={`/playlist/${p.id}`}>
+                                    <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
+                                        {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-yt-gray" />}
+                                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
+                                            <div className="text-center text-white"><PlaylistIcon /><p className="font-semibold">{p.videoCount} 本の動画</p></div>
+                                        </div>
+                                    </div>
+                                    <h3 className="font-semibold mt-2">{p.title}</h3>
+                                </Link>
+                                <button onClick={() => handleSavePlaylist(p)} disabled={savingPlaylistId === p.id} className="absolute top-2 right-2 p-2 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50" title="ライブラリに保存">
+                                    <AddToPlaylistIcon />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                ) : <div className="text-center p-8">このチャンネルには再生リストがありません。</div>;
+            default:
+                return null;
+        }
+    };
 
     return (
         <div>
@@ -186,8 +187,8 @@ const ChannelPage: React.FC = () => {
                     <h1 className="text-2xl font-bold">{channelDetails.name}</h1>
                     <div className="text-sm text-yt-light-gray mt-1 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-x-2">
                         {channelDetails.handle && <span>@{channelDetails.handle}</span>}
-                        {channelDetails.subscriberCount && <span>チャンネル登録者数 {channelDetails.subscriberCount}人</span>}
-                        {channelDetails.videoCount != null && <span>動画 {channelDetails.videoCount}本</span>}
+                        {channelDetails.subscriberCount && channelDetails.subscriberCount !== '非公開' && <span>チャンネル登録者数 {channelDetails.subscriberCount}</span>}
+                        {channelDetails.videoCount > 0 && <span>動画 {channelDetails.videoCount.toLocaleString()}本</span>}
                     </div>
                     {channelDetails.description && (
                         <p className="text-sm text-yt-light-gray mt-2 line-clamp-2">
@@ -212,47 +213,7 @@ const ChannelPage: React.FC = () => {
             </div>
 
             <div className="mt-6">
-                {activeTab === 'videos' && <VideoGrid videos={videos} isLoading={isTabLoading && videos.length === 0} hideChannelInfo={true} />}
-                {activeTab === 'shorts' && <VideoGrid videos={shorts} isLoading={isTabLoading && shorts.length === 0} hideChannelInfo={true} />}
-                {activeTab === 'playlists' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {playlists.map(p => (
-                            <div key={p.id} className="group relative">
-                                <Link to={`/playlist/${p.id}`}>
-                                    <div className="relative aspect-video bg-yt-dark-gray rounded-lg overflow-hidden">
-                                        {p.thumbnailUrl ? (
-                                            <img src={p.thumbnailUrl} alt={p.title} className="w-full h-full object-cover" />
-                                        ) : (
-                                            <div className="w-full h-full bg-yt-gray" />
-                                        )}
-                                        <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center">
-                                            <div className="text-center text-white">
-                                                <PlaylistIcon />
-                                                <p className="font-semibold">{p.videoCount} 本の動画</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <h3 className="font-semibold mt-2">{p.title}</h3>
-                                </Link>
-                                <button
-                                    onClick={() => handleSavePlaylist(p)}
-                                    className="absolute top-2 right-2 p-2 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
-                                    title="ライブラリに保存"
-                                    disabled={savingPlaylistId === p.id}
-                                >
-                                    <AddToPlaylistIcon />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                 <div ref={lastElementRef} className="h-10">
-                    {isTabLoading && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 mt-8">
-                            {Array.from({ length: 5 }).map((_, index) => <VideoCardSkeleton key={index} />)}
-                        </div>
-                    )}
-                </div>
+                {renderTabContent()}
             </div>
         </div>
     );
