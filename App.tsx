@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
@@ -34,7 +33,16 @@ const App: React.FC = () => {
 
   const mainContentMargin = getMargin();
   const mainContentPadding = isShortsPage ? '' : isPlayerPage ? 'p-6 lg:px-24' : 'p-6';
-  const showSidebar = !isShortsPage && !isPlayerPage;
+  
+  // サイドバーの表示ロジックを修正
+  // 通常ページでは常に表示（開閉はSidebarコンポーネント内部で制御）
+  // プレーヤーページでは、isSidebarOpenがtrueの時だけオーバーレイとして表示
+  // ショートページでは非表示
+  const shouldShowSidebar = () => {
+    if (isShortsPage) return false;
+    if (isPlayerPage) return isSidebarOpen;
+    return true;
+  };
 
   return (
     <div className="min-h-screen bg-yt-white dark:bg-yt-black">
@@ -44,7 +52,7 @@ const App: React.FC = () => {
         toggleTheme={toggleTheme}
       />
       <div className="flex">
-        {showSidebar && <Sidebar isOpen={isSidebarOpen} />}
+        {shouldShowSidebar() && <Sidebar isOpen={isSidebarOpen} />}
         <main className={`flex-1 mt-14 ${mainContentMargin} ${mainContentPadding} transition-all duration-300`}>
           <Routes>
             <Route path="/" element={<HomePage />} />
