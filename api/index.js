@@ -19,31 +19,53 @@ app.get('/api/video', async (req, res) => {
 
     const info = await youtube.getInfo(id);
 
-    // ★★★ これが最重要の修正点です (ご提示いただいたロジックを実装) ★★★
+    // ★★★ Next.jsの例を参考に、関連動画を深掘りして最大100件取得するロジックに修正 ★★★
 
-    // 1. 関連動画リストのソースを、優先順位に従って特定します。
-    let relatedFeedSource = [];
-    if (Array.isArray(info.related_videos) && info.related_videos.length > 0) {
-      relatedFeedSource = info.related_videos;
-    } else if (Array.isArray(info.watch_next_feed) && info.watch_next_feed.length > 0) {
-      relatedFeedSource = info.watch_next_feed;
-    } else if (Array.isArray(info.secondary_info?.watch_next_feed) && info.secondary_info.watch_next_feed.length > 0) {
-      relatedFeedSource = info.secondary_info.watch_next_feed;
+    // 関連動画取得（100件まで、深掘り）
+    let relatedVideos = [];
+    const MAX_VIDEOS = 100;
+
+    // 1. 初期の関連動画ソースを特定（複数のプロパティから優先順位に従って探す）
+    let initialRelated = info.related || [];
+    if (!initialRelated.length && Array.isArray(info.related_videos)) {
+      initialRelated = info.related_videos;
+    } else if (!initialRelated.length && Array.isArray(info.watch_next_feed)) {
+      initialRelated = info.watch_next_feed;
+    } else if (!initialRelated.length && Array.isArray(info.secondary_info?.watch_next_feed)) {
+      initialRelated = info.secondary_info.watch_next_feed;
+    }
+    
+    // 2. キューと処理済みIDセットの準備
+    const queue = [...initialRelated]; 
+    const seen = new Set();
+    
+    // 3. キューベースの深掘り処理
+    while (queue.length > 0 && relatedVideos.length < MAX_VIDEOS) {
+      const video = queue.shift();
+      
+      // 動画アイテムとしての最小限の検証（IDが11桁の文字列であること）と重複チェック
+      if (!video || typeof video.id !== 'string' || video.id.length !== 11 || seen.has(video.id)) {
+        continue;
+      }
+      seen.add(video.id);
+
+      // 元の動画オブジェクトを追加
+      relatedVideos.push(video);
+
+      // youtubei.js でさらに関連動画が提供されていれば、それをキューに追加して深掘り
+      if (Array.isArray(video.related) && video.related.length > 0) {
+        queue.push(...video.related);
+      }
     }
 
-    // 2. 特定したソースから、純粋な動画データだけを抽出します。
-    //    動画ID(11桁の文字列)とタイトルを持つ項目のみを対象とします。
-    const pureVideoItems = relatedFeedSource.filter(item =>
-      item && typeof item.id === 'string' && item.id.length === 11 && item.title
-    );
-
-    // 3. フロントエンドが期待する `watch_next_feed` プロパティに、
-    //    綺麗になった動画リストをご希望の100件格納します。
-    info.watch_next_feed = pureVideoItems.slice(0, 100);
+    // 4. `info`オブジェクトの関連動画部分を、深掘りして集めたリストで置き換える
+    //    元のコードの慣習に従い、watch_next_feed に格納します。
+    info.watch_next_feed = relatedVideos.slice(0, MAX_VIDEOS);
     
-    // (念のため、他の可能性のあったプロパティを空にして、データの重複を防ぎます)
+    // (念のため、他の可能性のあったプロパティをクリアし、データの重複を防ぎます)
     if (info.related_videos) info.related_videos = [];
     if (info.secondary_info?.watch_next_feed) info.secondary_info.watch_next_feed = [];
+    if (info.related) info.related = []; // info.related もクリアしておくと安全
 
     res.status(200).json(info);
     
